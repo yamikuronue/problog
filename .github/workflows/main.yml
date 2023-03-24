@@ -24,13 +24,15 @@ jobs:
           known_hosts: ${{ secrets.SSH_HOST }}
           if_key_exists: fail
           
-      - name: Generate and deploy website
-        uses: ronvanderheijden/hugo-rsync-deployment@master
-        env:
-          VPS_DEPLOY_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          VPS_DEPLOY_USER: agni
-          VPS_DEPLOY_HOST: bay.green-gaillard.com
-          VPS_DEPLOY_DEST: /var/www/green-gaillard.com/bay/blog/
+      - name: Build
+        run: hugo
+          
+      - name: rsync deployments
+        uses: burnett01/rsync-deployments@5.2.1
         with:
-          hugo-arguments: '--minify'
-          rsync-arguments: '--archive --compress --xattrs --delete'
+          switches: -avzr --delete
+          path: src/public/
+          remote_path: /var/www/green-galliard.com/bay/blog/
+          remote_host: bay.green-gaillard.com
+          remote_user: agni
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
