@@ -1,4 +1,4 @@
-baseURL = 'http://bay.green-gaillard.com/blog'
+baseURL = 'https://bay.green-gaillard.com/blog'
 languageCode = 'en-us'
 title = 'My New Hugo Site'
 theme = 'bilberry'
