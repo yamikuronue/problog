@@ -1,4 +1,5 @@
 baseURL = 'https://bay.green-gaillard.com/blog'
 languageCode = 'en-us'
-title = 'My New Hugo Site'
+title = "Bay's Blog"
 theme = 'bilberry'
+showReadingTime  = 'true'
