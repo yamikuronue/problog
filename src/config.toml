@@ -2,4 +2,16 @@ baseURL = 'https://bay.green-gaillard.com/blog'
 languageCode = 'en-us'
 title = "Bay's Blog"
 theme = 'bilberry'
-showReadingTime  = 'true'
+enableRobotsTXT = true
+DefaultContentLanguage = "en"
+[params]
+	avatarEmail = 'bay.gaillard@gmail.com'
+	showReadingTime  = 'true'
+    algolia_search    = false
+	author = "Bay Gaillard"
+    description = "The professional blog of Bay Gaillard."
+    keywords = "blog,personal,sqa,qa,devops"
+	socialMediaLinks = [
+      { link = "https://github.com/yamikuronue", icon = "fab fa-github" },
+	  { link = "https://twitter.com/yamikuronue", icon = "fab fa-twitter", rel = "me" },
+    ]

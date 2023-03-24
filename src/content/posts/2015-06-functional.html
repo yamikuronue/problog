@@ -1,0 +1,182 @@
+---
+categories:
+- Javascript
+- Home Projects
+date: "2015-06-01"
+tags:
+- node.js
+- testing
+- webdriver
+title: "Testing SockSite: Functional Tests with Node.JS"
+---
+
+	
+		<div class="entry-content">
+		<h2>Background</h2>
+<p>As you may know if you&#8217;ve ever browsed my GitHub account, I am a member of a tiny open-source organization called SockDrawer. Odds are, we don&#8217;t make anything you&#8217;ve heard of; we&#8217;re just a group of individuals that all belong to a forum and wanted to make tools to enhance the forum-going experience. SockDrawer began when the founder, Accalia, wanted to make a platform for easily creating bots that interact with up-and-coming forum software Discourse. She named her platform SockBot, after the forum term &#8220;sock puppet&#8221;, and soon had more help than she could easily organize from other forumgoers who wanted to pitch in.</p>
+<p>My connection with SockDrawer came when Accalia solicited some advice on how to unit test SockBot. The architecture wasn&#8217;t designed well for testability; since I work in QA, I had plenty of advice to dispense. Furthermore, she wanted help writing documentation; technical writing is also something I&#8217;m somewhat interested in, so I joined Sock Drawer and stuck around.</p>
+<h2>The Ticket</h2>
+<p>The ticket that generated today&#8217;s adventure was filed by Onyx, the UX expert for SockDrawer. It was a feature request for another product, Sock Site, which is a website that is used to monitor the forum&#8217;s uptime; the production version can be seen at <a href="http://www.isitjustmeorservercooties.com">www.isitjustmeorservercooties.com </a>if you want to follow along.</p>
+<p>The ticket was issue number 45: &#8220;No method of simulating server cooties&#8221; (&#8220;server cooties&#8221; means, loosely translated, that the forum in question is behaving incredibly slowly or not responding due to an unknown cause). The text:</p>
+<blockquote><p>We are missing a method of simulating server cooties outside of calling one of the status endpoints. This is not really useful for testing live update issues.</p>
+<p>A good solution might be a way to set a &#8220;delay&#8221; variable at runtime. Value of this variable could then be added to the actual measured time (in ms). Setting this variable per tested endpoint would be nice, but not essential.</p></blockquote>
+<p>Of course, I immediately threw out the suggested solution :). To me, the best way to simulate server cooties was to mock the data coming from the server, putting the site into an artificially induced yet real test, sort of an emergency drill. The best way to ensure that the frontend responds correctly to what the backend is doing, to me, is to codify the changes in the functional tests, therefore removing the burden of manually regression testing when making front-end changes.</p>
+<h2>Webdriver bindings</h2>
+<p>I have used Selenium Webdriver for functional testing before, so I googled to try and find a Node library that would expose them. <a href="http://webdriver.io/">Webdriver.io</a> was my first attempt; however, the interface for this library is so radically different than the standard interface that I found myself rapidly frustrated by the constant need to refer to the docs to write anything. What it did well, however, was abstracting the creation of the browser and the cleanup so that I didn&#8217;t have to write that code. Ultimately, though, I abandoned it and returned to the standard <a href="https://code.google.com/p/selenium/wiki/WebDriverJs">selenium-webdriver</a> library.</p>
+<p>I knew that I&#8217;d eventually want to use a remote webdriver service, particularly if we ever wanted to use BrowserStack or some third party source for webdriver. Wouldn&#8217;t it be cool, I thought, if when we&#8217;re not running from CI, we launched the server portion of the remote webdriver automatically? This proved to be frustratingly difficult using the selenium-webdriver library. I almost gave up &#8212; until I found <a href="https://www.npmjs.com/package/selenium-standalone">selenium-standalone</a>. This was hands-down the easiest library for controlling webdriver I&#8217;ve ever used, and I intend to bring it back to my workplace and suggest we start using it immediately. It contains commands to automatically install and launch the selenium server along with various browser drivers such as the add-on driver for Chrome or Internet Explorer. I eventually moved the install out of the scripts, figuring it could be done during the setup before the tests were run.</p>
+<p>Using Mocha, this made my before method nice and clean:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">before('init browser session', function(done){
+   
+       socksite.log = function() {} //no-op log function == quiet mode
+       socksite.start(8888, 'localhost', function() {
+           selenium.start(function(err, child) {
+             if (err) throw err;
+             
+             driver = new webdriver.Builder().
+                   usingServer('http://localhost:4444/wd/hub').
+                   withCapabilities(webdriver.Capabilities.firefox()).
+                   build();
+             
+               //In order to know when we're ready to run the test, we have to load a page.
+              //there's no "on browser ready" to hook into that I've found
+               driver.get("localhost:8888").then(done);
+           });
+       });
+       
+   });</pre>
+<p>And the first test:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">it('should be running', function(done) {
+        driver.getTitle().then(function(title) {
+            assert.strictEqual(title,'Is it just me or server cooties?',"Should have the right title");
+            done();
+         });
+    });</pre>
+<p>The teardown code had a similar issue: it needs to be async so that the teardown completes before Mocha exits:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">after('end browser session', function(done){ 
+        driver.close().then(done);
+    });</pre>
+<h2>Mocking data</h2>
+<p>Now, I needed to be able to mock the up and downtime of the site. Because we&#8217;re in Node, and not behind Apache or anything like that, I&#8217;ve launched the server in code; I have a handle directly to the application already. But how to feed it false data? Did I need to use Sinon.js to mock out the module that takes the samples? Try to intercept the socket?</p>
+<p>It turns out, we have a cache module that stores the latest result. When a page load is requested, the server fetches the data from the cache and embeds it on the page. While we could also emit the fake data using the web socket, that gets us into the messy territory of knowing when the client has received the data and finished updating, so that we can test that it updated correctly. This is worth doing to test the sockets later, but for now, I figured changing the cache and issuing another page load would be sufficient.</p>
+<p>I encapsulated some data packets in a json file, which I loaded into the variable testData. This let my tests be simple and clean again:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">describe('TRWTF', function() {
+        it('is You when status is "Great"', function(done) {
+            cache.summary = testData.greatData;
+            
+            driver.get("localhost:8888").then(function() {
+                driver.findElement(webdriver.By.css("#header-image-wrapper img")).getAttribute("src").then(function(value) {
+                    assert.match( value,/isyou\.png/, "Image should say 'Is you'");
+                    done();
+                })
+            });
+        });
+    
+        //[...]
+
+        
+        it('is Discourse when status is "Offline"', function(done) {
+            cache.summary = testData.offlineData;
+            
+            driver.get("localhost:8888").then(function() {
+                driver.findElement(webdriver.By.css("#header-image-wrapper img")).getAttribute("src").then(function(value) {
+                    assert.match( value,/isdiscourse\.png/, "Image should say 'Is discourse'");
+                    done();
+                })
+            });
+        });
+    })</pre>
+<h2>Screenshots</h2>
+<p>Now we were getting somewhere! I could see firefox open, flash through the various statuses, and close again. All I had to do was use Webdriver&#8217;s screenshot capability to capture images and we&#8217;d have a visual reference for what the site looks like in each of the various cootie configurations.</p>
+<p>I created a second file, generateScreenshots.js, and put together a suite that does just that and nothing but that. I&#8217;m using Node on Windows, so I needed to use the path library to handle the differing direction of slashes on my machine versus the linux-based CI server or dev environments other developers were using. I also used path.resolve to generate the folder to save the screenshots to, since it uses the current directory to make relative paths absolute.</p>
+<p>Here&#8217;s the complete text of the screenshot module:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">describe('Taking screenshots...', function() {
+    var browser = {}; 
+     this.timeout(40000);
+     var driver;
+     
+     var folder = path.resolve("test", "functional", "screenshots");
+
+    before('init browser session', function(done){
+    
+        socksite.log = function() {} //no-op log function == quiet mode
+        socksite.start(8888, 'localhost', function() {
+            selenium.start(function(err, child) {
+              if (err) throw err;
+              
+              driver = new webdriver.Builder().
+                    usingServer('http://localhost:4444/wd/hub').
+                    withCapabilities(webdriver.Capabilities.firefox()).
+                    build();
+                driver.get("localhost:8888").then(done);
+            });
+        });
+        
+    }); 
+
+    
+
+    it('when status is "Great"', function(done) {
+        cache.summary = testData.greatData;
+        
+        driver.get("localhost:8888").then(function() {
+            driver.takeScreenshot().then(function(image, err) {
+                fs.writeFile(path.join(folder, 'great.png'), image, 'base64', done);
+            });
+        });
+    });
+
+    it('when status is "Good"', function(done) {
+        cache.summary = testData.goodData;
+        
+        driver.get("localhost:8888").then(function() {
+            driver.takeScreenshot().then(function(image, err) {
+                fs.writeFile(path.join(folder, 'good.png'), image, 'base64', done);
+            });
+        });
+    });
+    
+    it('when status is "OK"', function(done) {
+        cache.summary = testData.okData;
+        
+        driver.get("localhost:8888").then(function() {
+            driver.takeScreenshot().then(function(image, err) {
+                fs.writeFile(path.join(folder, 'ok.png'), image, 'base64', done);
+            });
+        });
+    });
+    
+    it('when status is "Bad"', function(done) {
+        cache.summary = testData.badData;
+        
+        driver.get("localhost:8888").then(function() {
+            driver.takeScreenshot().then(function(image, err) {
+                fs.writeFile(path.join(folder, 'bad.png'), image, 'base64', done);
+            });
+        });
+    });
+    
+    it('when status is "Offline"', function(done) {
+        cache.summary = testData.offlineData;
+        
+        driver.get("localhost:8888").then(function() {
+            driver.takeScreenshot().then(function(image, err) {
+                fs.writeFile(path.join(folder, 'offline.png'), image, 'base64', done);
+            });
+        });
+    });
+
+    after('end browser session', function(done){ 
+        driver.close().then(done);
+    }); 
+});</pre>
+<h2></h2>
+<h2>Conclusion</h2>
+<p>Finally, to make it easy to run, I created some npm commands in the package.json:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">"scripts": {
+    "test": "npm install selenium-standalone -g &amp;&amp; selenium-standalone install &amp;&amp; mocha test\\functional\\webdriverTests.js",
+    "screenshot": "npm install selenium-standalone -g &amp;&amp; selenium-standalone install &amp;&amp; mocha test\\functional\\generateScreenshots.js"
+  },</pre>
+<p>This lets us run the tests with <code class="EnlighterJSRAW" data-enlighter-language="null">npm test</code> ,and the screenshots with <code class="EnlighterJSRAW" data-enlighter-language="null">npm run screenshot</code>. Nice and simple for developers to use, or to hook into CI.</p>
+<p>In the long run, SockDrawer is moving towards a gulp-based build pipeline approach, while I&#8217;m only familiar with Grunt. Accalia said she&#8217;d turn these simple scripts into steps in the eventual gulp file, letting the CI run with them. I also want to change the test code to default to phantom-js, with an optional input to use any browser so we can run them cross-browser in the future. But for an evening&#8217;s tinkering, I&#8217;d say, this isn&#8217;t bad 🙂</p>
+
+			</div><!-- .entry-content -->

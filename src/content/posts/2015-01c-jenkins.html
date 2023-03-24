@@ -1,0 +1,40 @@
+---
+categories:
+- Quick Tips
+date: "2015-01-15"
+tags:
+- continuous integration
+- jenkins
+- maven
+title: "Quick Tip: passing parameters from Jenkins to Maven"
+---
+
+	
+		<div class="entry-content">
+		<p>I saw bits and pieces of information all over the internet about parameters and properties and command-line arguments, but what I was looking for I didn&#8217;t find: a simple, straightforward explanation of how to use a Paramaterized Build in Jenkins to pass arguments through to the jUnit tests that run the functional tests that I&#8217;ve built on Webdriver. So:  here it is!</p>
+<h2>Step 1: Command-line via Maven to jUnit</h2>
+<p>Use the System.getProperty tor ead system properties in Java:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">        remoteHost = System.getProperty("remoteHost");
+    	if (remoteHost == null) remoteHost = "http://localhost:4444/wd/hub";
+    	
+    	browserName = System.getProperty("browserName");
+    	if (browserName == null) browserName = "Internet Explorer";</pre>
+<p>And use -D to pass them with Maven:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="shell">mvn test -DbrowserName=Firefox</pre>
+<p>Voila!</p>
+<p>&nbsp;</p>
+<h2>Step 2: Jenkins to Maven</h2>
+<p>First make the build a paramaterized build:</p>
+<p><a href="/blog/jenkins_params1.png"><img loading="lazy" class="alignnone size-full wp-image-93" src="/blog/jenkins_params1.png" alt="jenkins_params1" width="1017" height="356" /></a></p>
+<p>&nbsp;</p>
+<p>Then adjust the maven build step as shown:</p>
+<p>&nbsp;</p>
+<p><a href="/blog/jenkins_params2.png"><img loading="lazy" class="alignnone size-full wp-image-94" src="/blog/jenkins_params2.png" alt="jenkins_params2" width="1217" height="256" /></a></p>
+<p>&nbsp;</p>
+<p>(Quotes are important here because of Internet Explorer)</p>
+<p>&nbsp;</p>
+<p>Voila!</p>
+<p>&nbsp;</p>
+
+			</div><!-- .entry-content -->
+	
