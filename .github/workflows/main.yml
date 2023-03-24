@@ -32,7 +32,7 @@ jobs:
         with:
           switches: -avzr --delete
           path: src/public/
-          remote_path: /var/www/green-galliard.com/bay/blog/
+          remote_path: /var/www/green-gaillard.com/bay/blog/
           remote_host: bay.green-gaillard.com
           remote_user: agni
           remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
