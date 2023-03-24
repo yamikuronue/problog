@@ -1,0 +1,43 @@
+---
+categories:
+- Longer Tales
+- Server
+date: "2013-03-01"
+tags:
+- agni
+- home projects
+- server
+title: "Agni: Up And Running"
+---	
+
+	
+		<div class="entry-content">
+		<p>So I got food poisoning.</p>
+<p>From <strong>marshmallows.</strong></p>
+<p>What is this I don&#8217;t even.</p>
+<p>&#8212;&#8212;-</p>
+<p>Anyway, Agni! I&#8217;ve ordered an IDE/ATA-to-USB connector cable, but it&#8217;ll be next week before it&#8217;s here, so in the meantime, let&#8217;s see what we have with Agni. Mercury, my previous box, used PS/2 connections for keyboard and mouse, but unfortunately, I&#8217;m only finding USB inputs.</p>
+<p>Never fear, it came with a keyboard and mouse! &#8230;.oh. They&#8217;re ps/2 as well. Well. That&#8217;s. Helpful.</p>
+<figure id="attachment_1483" aria-describedby="caption-attachment-1483" style="width: 640px" class="wp-caption aligncenter"><a href="http://yamikuronue.files.wordpress.com/2013/03/2013-03-02-11-07-52.jpg"><img loading="lazy" class=" wp-image-1483" src="http://yamikuronue.files.wordpress.com/2013/03/2013-03-02-11-07-52.jpg?w=640" alt="2013-03-02 11.07.52" width="640" height="360" /></a><figcaption id="caption-attachment-1483" class="wp-caption-text">This is a PS/2 connector btw.</figcaption></figure>
+<p>So let&#8217;s see. I have a wireless usb mouse I&#8217;m using right now, and we have a usb keyboard attached to another computer, but we&#8217;d previously bought a kvm (Keyboard, Video, Mouse) switch that used ps/2 connections, so we&#8217;ll probably want a usb one of those in the long run. But I am determined to get this working. Determined, I tell you!</p>
+<p>So we cannibalized a wireless USB mouse from a laptop and a USB keyboard from our desktop machine, figuring we&#8217;ll get it up and running and then control it via SSH until we can get the new kvm switch.</p>
+<p>To install linux, I&#8217;ll need to make a bootable media so I can do the install. Except. We have a ton of DVDs, but it doesn&#8217;t read DVDs. It has a floppy drive, but it&#8217;s the only machine that does. I can&#8217;t seem to find any blank CDs, and I don&#8217;t want to reformat a USB stick since we&#8217;re using all of ours for data. Hmm. Decisions decisions.</p>
+<p>Aha! My roommate to the rescue! He&#8217;s found a stack of blank CD-Rs and given me one. Now to download the AMD64 version of the debian network install (because I&#8217;ve got an AMD-brand 64-bit processor, as evidenced in<a title="Introducing: Agni" href="http://yamikuronue.wordpress.com/2013/02/25/introducing-agni/"> post one</a>).</p>
+<p>Mercury ran xubuntu, keeping updated to each LTS version, but I think for Agni I&#8217;m going to just use ordinary debian + xfce. Since it&#8217;s a server, it can technically be run headless, but I have Chaos do tasks on the machine sometimes and he&#8217;s infinitely more comfortable with a GUI environment than a command line, so I like to put a lightweight GUI on the machine. XFCE is nice and small 🙂</p>
+<p>Debian should also help avoid some of the weird issues I had with mercury installing apache into some non-default spot. I&#8217;m still not sure why that happened, but it seemed I had to modify every tutorial thanks to being on ubuntu instead of debian proper. Also he&#8217;ll match my new <a href="http://www.raspberrypi.org/">Rasberry Pi</a>, which runs <a href="http://www.raspbmc.com/">Rasbmc</a>, which is <a href="http://www.raspbian.org/">Rasbian </a>+ <a href="http://xbmc.org/">xbmc</a>, where rasbian is a debian fork for the raspberry. So they&#8217;ll match!</p>
+<p>Wow that&#8217;s a lot of acronyms in two paragraphs. If you&#8217;re lost, never fear, have a marmoset:</p>
+<p><img loading="lazy" class="alignnone" src="http://yamikuronue.files.wordpress.com/2013/03/marmoset.jpg" alt="" width="250" height="248" /></p>
+<p>Alright, back to work! So we need a usb keyboard&#8230;</p>
+<p>but I don&#8217;t seem to have one? Goddamn, my tech stash is so inadequate. I&#8217;ve borrowed one from my husband&#8217;s laptop. Yet another thing to add to my list of stuff to purchase.</p>
+<p>Anyway, with a borrowed wireless usb keyboard (James: &#8220;Won&#8217;t you need special drivers?&#8221; Me: &#8220;Betcha the install disk has them anyway.&#8221; Sure enough, It Just Works.), and a borrowed wireless USB mouse, we&#8217;re up and running! Agni now knows its name and speaks American English. I formatted two partitions out of the disk so I can keep the site data separate from the linux install in case I need to change distros or upgrade or something later on. It should also make backups easier.</p>
+<p>Alright, debian installed, time to pop open a console and&#8230;</p>
+<p>why is it black text on white background?! BIZZARE.</p>
+<p>Anyway. Time to set up a static IP address. I just save off a backup copy of /etc/network/interfaces and change my settings&#8230; and it won&#8217;t come back up. Why did it fail? What is a &#8220;network&#8221; and what do I set it to? How about I strip the settings to the bare minimum? After ages of reading stuff off to one of my friends (since I&#8217;m having trouble reading this week, my vision&#8217;s been blurred due to some meds), we discover he didn&#8217;t hear a space when I read things off to him. Whoops.</p>
+<p>Next problem: /sbin isn&#8217;t in our path? what? So I can&#8217;t use ifup&#8230; Fuck it. Reboot.</p>
+<p>Nope, still not working. Okay. Restore from backup. Add interface eth0 to config file, but this time, use dchp instead of static. Test if it works now. Success! Ping google. Also success! Okay. So. That works for now. Screw it. I&#8217;m going to use my router to assign the IP address. ifdown, ifup, and we&#8217;re running.</p>
+<p>Debian Wheezy and up install ssh by default, so now I can get into the box remotely. Huzzah. Except&#8230; connection refused. Joy. Maybe it didn&#8217;t install? apt-get install ssh&#8230; no, it&#8217;s there. Oh, maybe it&#8217;s not started? /etc/init.d/ssh start&#8230; nope. Could not load host key. Okay, that sounds like I need to regenerate the key somehow&#8230; more googling&#8230;</p>
+<p>aha! ssh-keygen -t dsa -f /etc/ssh/ssh_host_dsa_key</p>
+<p>So now SSH is up and running, time to install apache!</p>
+<p>&nbsp;</p>
+
+			</div><!-- .entry-content -->

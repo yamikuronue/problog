@@ -1,0 +1,48 @@
+---
+categories:
+- Longer Tales
+- Server
+date: "2013-03-10"
+tags:
+- agni
+- home projects
+- server
+title: "Agni: Full brain transplant"
+---	
+	
+		<div class="entry-content">
+		<p>My cable got here! YAY!</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/pic1.jpg"><img class="aligncenter size-large wp-image-1507" alt="pic1" src="http://yamikuronue.files.wordpress.com/2013/03/pic1.jpg?w=640" width="640" height="360" /></a></p>
+<p>So I unpack everything, skim the instruction manual, and go to plug it in. The first thing I notice is that it&#8217;s got external power &#8212; yay! That means I could re-purpose this old small drive for the raspi, since it won&#8217;t need to draw power from the machine itself.</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/pic2.jpg"><img loading="lazy" class="aligncenter size-large wp-image-1508" alt="pic2" src="http://yamikuronue.files.wordpress.com/2013/03/pic2.jpg?w=640" width="640" height="360" /></a></p>
+<p>(Fun fact: the majority of the space in the box it shipped in was taken up by adapters for various international power supplies, lol. I recognize british and european)</p>
+<p>At first glance, it didn&#8217;t look like the connector would fit into the slot:</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/pic3.jpg"><img loading="lazy" class="aligncenter size-large wp-image-1509" alt="pic3" src="http://yamikuronue.files.wordpress.com/2013/03/pic3.jpg?w=640" width="640" height="360" /></a></p>
+<p>But it seemed to plug in just fine when I tried it:</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/pic4.jpg"><img loading="lazy" class="aligncenter size-large wp-image-1510" alt="pic4" src="http://yamikuronue.files.wordpress.com/2013/03/pic4.jpg?w=640" width="640" height="360" /></a></p>
+<p>(insert innuendo here)</p>
+<p>So I figured all was well and continued plugging in. When I put the USB into my laptop, it came up with found new hardware, installing, and then ready to go. Yay! It recognized the device as a new USB mass storage device. Double yay! But then&#8230; there&#8217;s no extra drive mounted to my computer. What?</p>
+<p>The device manager sees a USB mass storage device as well, I just can&#8217;t seem to FIND it. The light for the drive on the connector is amberish, and the light for USB is red. I can hear the drive whirring softly, but it did that from the moment I plugged in the power, so&#8230;</p>
+<p>The hard drive is a WD400BB, considered a legacy product, but the stats are<a href="http://www.wdc.com/en/products/legacy/Legacy.asp?r=1"> still availible</a> if you know where to look. It connects using 40-pin EIDE (also known as ATA-2). The manual for the cord says it handles both 40-pin and 44-pin IDE. There are differences between plain IDE and EIDE, but not ones a cable should care about, as far as I can tell.</p>
+<p>That leaves&#8230; jumper settings? A quick google search suggests I jumper it like a slave drive instead of a master. It&#8217;s currently jumpered Dual (Master), so I unplug the USB, then power, then move the jumper, then re plug back in.</p>
+<p>(as a side note, the drive gets hot when not in an enclosure at all &gt;.&gt;)</p>
+<p>Aha! The drive light turned blue! Oh wait. Then amber again. Plug in USB aaaand&#8230; nope. Nothing.</p>
+<p>Okay, so, what&#8217;s on this disk?</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/filesondriverdisk_ideconverter.png"><img loading="lazy" class="aligncenter size-full wp-image-1500" alt="filesondriverdisk_IDEconverter" src="http://yamikuronue.files.wordpress.com/2013/03/filesondriverdisk_ideconverter.png" width="610" height="308" /></a></p>
+<p>Dafuq am I looking at? Nothing jumps out as being of use. Lol, Windows 98.</p>
+<p>Then it hit me. This drive? Totally formatted ext. Google suggests that Windows hides unformatted drives; maybe it just can&#8217;t read it? So I go get a program called <a href="http://www.ext2fsd.com/?page_id=7">Ext2Fsd</a>, and sure enough:</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/ext2fsd.png"><img loading="lazy" class="aligncenter size-full wp-image-1501" alt="ext2fsd" src="http://yamikuronue.files.wordpress.com/2013/03/ext2fsd.png" width="628" height="508" /></a>It even found the swap partition! Unfortunately, it won&#8217;t let me make a mountpoint via MountMgr (it just&#8230;. does nothing when I click &#8220;add&#8221;). I finally got it to work using &#8220;DefineDosDevice&#8221;, but I wonder what happened to MountMgr?</p>
+<p>A little sftp magic, and I should be good to go! Except&#8230; Filezilla says &#8220;E:\ does not exist or cannot be accessed&#8221;. What? Win-R, cmd, &#8220;E:&#8221; gives me &#8220;The system cannot find the drive specified&#8221;. Awesome. And My Computer still sees no such drive letter.</p>
+<p>Well let me try to add a mountpoint at H: with MountMgr and&#8230;. and now the list of mountpoints is empty. What?! Okay, this tool fucking sucks.</p>
+<p>Let&#8217;s try <a href="http://www.fs-driver.org/index.html">Ext2IFS</a>! Oh wait, that only supports Vista. Wait&#8230;. the top link on google says it&#8217;s the ONLY thing that works on win7. WTF? Let&#8217;s try running it in compatibility mode. Walk through the install, assign it to drive letter H:, go back to My Computer. Success! There&#8217;s an H:! Double-click:</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/format.png"><img loading="lazy" class="aligncenter size-full wp-image-1503" alt="format" src="http://yamikuronue.files.wordpress.com/2013/03/format.png" width="364" height="178" /></a>For the love of god, no!</p>
+<p>Okay. So. They suggest running mountdiag.exe on it:</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/sudo.png"><img loading="lazy" class="aligncenter size-large wp-image-1504" alt="sudo" src="http://yamikuronue.files.wordpress.com/2013/03/sudo.png?w=640" width="640" height="320" /></a></p>
+<p>Stupid Windows&#8230; I wonder if it&#8217;d be worth it to make a batch file that launches an elevated command prompt and runs the command passed in?</p>
+<p>Anyway, the real reason it didn&#8217;t mount is this:</p>
+<p><a href="http://yamikuronue.files.wordpress.com/2013/03/cleanshutdown.png"><img loading="lazy" class="aligncenter size-large wp-image-1505" alt="cleanshutdown" src="http://yamikuronue.files.wordpress.com/2013/03/cleanshutdown.png?w=640" width="640" height="266" /></a></p>
+<p>I give up. Windows, you have defeated me. I plugged the stupid thing into Agni. Why didn&#8217;t I do that first, you ask? Because I&#8217;ve had issues mounting things from the command line in linux just recently (rasslefrassin raspi) and figured I&#8217;d be more comfortable using Windows 7 + sftp.</p>
+<p>Telnet into Agni, lsusb shows the bridge just fine. lshw&#8230;.. isn&#8217;t installed. Wut. Install it, it seems to be logical drive /dev/sdb. dmesg shows me it did, in fact, clean up from the dirty dismount. After much poking about, I discover it automounted just fine: to /media/4812427d-c3d2-4f5b-92bd-68cb31c75d08. Because THAT&#8217;S a logical place for it.</p>
+<p>Anyway, copy the files to the right spot and voila! Agni up and running. Just gotta tweak the settings so they match the old ones and the old sites ought to be running smooth. Then it&#8217;s on to setting up WordPress and my new sites will be live too!</p>
+
+			</div><!-- .entry-content -->

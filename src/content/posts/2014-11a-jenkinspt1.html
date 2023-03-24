@@ -1,0 +1,110 @@
+---
+categories:
+- Longer Tales
+- Javascript
+- Workplace Tales
+date: "2014-11-01"
+tags:
+- jenkins
+- javascript
+- continuous integration
+title: "CI with Jenkins for Javascript: Part 1: Unit Testing"
+---
+
+	
+		<div class="entry-content">
+		<p>In a lot of ways, the Javascript world feels like it&#8217;s trapped in the year 2k: the dot com bubble is swelling huge, and nobody has time for best practices, it&#8217;s time to reinvent everything and strike it rich. As an SQA professional, it&#8217;s immensely frustrating to outline a technique and be told &#8220;Javascript doesn&#8217;t do that.&#8221; (That&#8217;s one of three answers that ought to be banned from a webdev&#8217;s vocabulary; the other two are &#8220;I think jQuery does that&#8221; and &#8220;Maybe with Node?&#8221; Protip: using the latest shiny library is no substitute for using your brain. But I digress.)</p>
+<p>Anyway, so let&#8217;s set the scene: A young, frazzled SQA professional, trying to get a sandbox install of Jenkins full of shiny things to prove to the Directors that really, we do need more tools, we&#8217;re not just being lazy. Jenkins&#8217; install was a tale for another blog, but it&#8217;s up and running. Now what?</p>
+<p>&nbsp;</p>
+<h2>Unit testing with QUnit</h2>
+<p>The first thing, the key component for any sort of continuous-testing exercise (nevermind the integration part for now, this is only a demo) is to automate the <strong>unit testing</strong>. In my case, we used qUnit for our tests, which is pretty standard. Or was it? Since we don&#8217;t do TDD and we&#8217;re backporting testing into legacy apps that weren&#8217;t built with testability in mind, I ended up putting Coldfusion to work for us. I created a series of drop-down menus, customized for each platform we were testing, that would let you drill down to a specific component to test (model, view, library element, et cetera). It would then read a json file to find any dependencies that were required (yes, the developers were given a lecture about minimizing dependencies. No, that doesn&#8217;t mean our legacy apps would detangle themselves magically overnight. Yes, they really insist on testing views with the real Handlebars templates stored in separate files. Sure, why not.) and include them on the page, then the item under test, then the test code.</p>
+<p>How do I make jenkins do this? The qUnit &#8220;way&#8221; seems to be to generate this page on the fly, but there ended up being quite a bit of logic implemented in Coldfusion I didn&#8217;t want to remake. And why should I? Add a &#8220;all&#8221; option to the dropdown and I had the exact result-set I wanted to include in Jenkins. What I really needed was a way to hit that page and retrieve the results.</p>
+<p>Enter <strong>Grunt</strong>.</p>
+<p><a href="http://gruntjs.com/">Grunt </a>is a automation system made to run javascript tasks, particularly in a node environment. I found it works pretty well to treat it like ant or maven in your javascript stack: migrate the nitty-gritty logic to grunt, then execute the grunt script from jenkins. I didn&#8217;t see a plugin to do this, so I used the shell plugin to execute grunt. That gets the tests run and result files generated.</p>
+<p>To get Grunt installed, you need Node (and the Node Package Manager). Once you have a working install of Node, you can install grunt with <code>npm install -g grunt</code>, which does a <b>g</b>lobal <b>install</b> of <b>grunt</b> using <b>n</b>ode <b>p</b>ackage <b>m</b>anager. Of course, this isn&#8217;t enough to get running. You then have to install the command-line interface for grunt, which is packaged separately (because nothing shiny can be simple):<code>npm install -g grunt-cli</code>.</p>
+<p>The Tao of Node involves creating projects, much like you do with Java and Eclipse. We&#8217;re not actually building anything here, there&#8217;s no asset pipeline involved at this stage, but you still have to have a project. So we create one. The simplest way to create a node package is with <code>npm init</code>, which will create a file called &#8220;package.json&#8221;. You probably never need to edit this file directly, but you can if you want. It&#8217;s just a json file.</p>
+<p>The Tao of Grunt then involves a file you&#8217;ll be editing heavily: &#8220;Gruntfile.js&#8221;. This is where the instructions for Grunt go. These instructions come in two flavors: a list of configuration options for the specific plugin you&#8217;re using, and a list of plugins to activate for a given build target. This is kind of like ant, but with JSON instead of XML. Your basic gruntfile looks like:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">module.exports = function(grunt) {
+
+  // Project configuration.
+  grunt.initConfig({
+   //JSON for config options here
+  });
+
+  // Load the plugins
+  grunt.loadNpmTasks('grunt-sometask');
+
+  // Default task(s).
+  grunt.registerTask('default', ['sometask']);
+
+};</pre>
+<p>For this use case, we want to use <code>grunt-contrib-qunit</code> to run my tests and snag the results. So we set that up first. Since I want to use an existing runner, I use the <code>urls</code> option to pass in the URL of the runner. My gruntfile then looks like:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">module.exports = function(grunt) {
+
+  // Project configuration.
+  grunt.initConfig({
+   qunit: {
+      all: {
+        options: {
+          urls: [
+             'http://[redacted]/testRunner/index.cfm?component=all'
+          ]
+        }
+      }
+    },
+  });
+
+  // Load the plugins
+  grunt.loadNpmTasks('grunt-contrib-qunit');
+
+  // Default task(s).
+  grunt.registerTask('default', ['qunit']);
+
+};
+</pre>
+<p>From the command line, I can then run <code>sudo grunt</code> from the folder with the gruntfile and bam, there&#8217;s my results. (Make sure there&#8217;s no authentication required to get to your test runner. That&#8217;s for the advanced class. Also, if you find someone teaching the advanced class, I&#8217;d love to sign up 🙂 ).<br />
+Of course, I can&#8217;t actually do that until I install <code>grunt-contrib-qunit</code>. Thankfully, these plugins are all available via npm. This is probably a good time to make an aside note about how npm works. See, we installed grunt globally, because we want it to be availible to multiple jenkins projects, but you&#8217;re not supposed to do that often. The better way to install dependencies is without the <code>-g</code> flag and with the <code>--save-dev</code> flag. This will do two things:</p>
+<ul>
+<li>Download the module to the project&#8217;s dependencies folder</li>
+<li>Add the module to your project.json file</li>
+</ul>
+<p>So in this case, we want to do a <code>npm install grunt-contrib-qunit --save-deps</code>. Do that for any other plugin I discuss and you&#8217;ll be up and running in no time.<br />
+Now, that&#8217;s all fine and dandy, except that qunit prints the output in a human-readable format to the screen. We want the output in a jenkins-readable file instead. Jenkins can read xUnit, TAP, and HTML reports with the help of some readily-available plugins, so basically anything standard will do; luckily, there&#8217;s another grunt plugin that takes the output from <code>grunt-contrib-qunit</code> and massages it into JUnit format before saving to a file. It&#8217;s called <code>grunt-qunit-junit</code>, because naming conventions are weird.</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">module.exports = function(grunt) {
+
+  // Project configuration.
+  grunt.initConfig({
+  qunit_junit: {
+        options: {
+          "dest":"../test-reports"
+        }
+    },
+   qunit: {
+      all: {
+        options: {
+          urls: [
+             'http://[redacted]/testRunner/index.cfm?component=all'
+          ]
+        }
+      }
+    },
+  });
+
+  // Load the plugins
+  grunt.loadNpmTasks('grunt-contrib-qunit');
+  grunt.loadNpmTasks('grunt-qunit-junit');
+
+  // Default task(s).
+  grunt.registerTask('default', ['qunit_junit','qunit']);
+
+};</pre>
+<p>Note that qunit-junit wants to be loaded before qunit. This will write the output in junit format to a folder called test-reports. Make sure that&#8217;s writeable by jenkins!<br />
+Speaking of Jenkins&#8230;</p>
+<p><img loading="lazy" class="" src="/blog/jenkins_grunt_1.png" alt="Displaying jenkins_grunt.png" width="808" height="148" /></p>
+<p>The or (<code>||</code>) and output aren&#8217;t strictly necessary; what that does is allow jenkins to continue building if the unit tests failed. Later, in the reporting step, a build will be marked &#8220;unstable&#8221; if the tests failed, but if you don&#8217;t have this you won&#8217;t be able to execute any later steps.</p>
+<p>Speaking of reporting, here&#8217;s how I configured the junit reporter for jenkins:</p>
+<p><img loading="lazy" class="" src="/blog/jenkins_junit_xml.png" alt="Displaying jenkins_junit.png" width="799" height="134" /></p>
+<p>And voila! Click &#8220;build&#8221; and you&#8217;ll see your results right away.</p>
+<p>&nbsp;</p>
+
+			</div><!-- .entry-content -->

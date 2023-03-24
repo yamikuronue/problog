@@ -1,0 +1,21 @@
+---
+categories:
+- Quick Tips
+date: "2014-10-15"
+tags:
+- wordpress
+title: "Quick Tip: Increasing the file upload limit in wordpress"
+---
+
+	
+		<div class="entry-content">
+		<p>If you do a google search for &#8220;increase file upload limit wordpress&#8221; or some combination of similar words, you see the same advice repeated all over: change your php.ini file so it reads something like</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="php">upload_max_filesize = 10M
+post_max_size = 10M</pre>
+<p>(possibly including an execution time variable as well), and/or change your .htaccess to read:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="php">php_value upload_max_filesize 10M
+php_value post_max_size 10M</pre>
+<p>Which literally does the same thing at a different level. If you&#8217;ve done this, however, and your &#8220;add new media&#8221; screen STILL says a ridiculously tiny number, and you happen to be running a multi-site install, there&#8217;s one more place you have to edit: under the network admin, under settings &gt; network settings, there&#8217;s a maximum file size textbox. It&#8217;s in KB, so you&#8217;ll have to add some extra zeros, but that should take care of the problem.</p>
+<p>WordPress is weird that way.</p>
+
+			</div><!-- .entry-content -->

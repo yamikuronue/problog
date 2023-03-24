@@ -1,0 +1,81 @@
+---
+categories:
+- Longer Tales
+- Javascript
+- Workplace Tales
+date: "2014-11-15"
+tags:
+- jenkins
+- javascript
+- continuous integration
+title: "CI with Jenkins for Javascript: Part 2: Static Analysis"
+---
+
+	
+		<div class="entry-content">
+		<p><a title="CI with Jenkins for Javascript: Part 1: Unit Testing" href="/blog/posts/2014-11a-jenkinspt1/">Part one</a></p>
+<p>So. We&#8217;re up, we&#8217;re unit testing, we&#8217;re publishing results. But unit testing is only as good as the tests themselves, and that depends heavily on the programmers&#8217; ability to write good tests. Maybe we want more than that. Maybe we want a metric that isn&#8217;t essentially self-reported. Maybe we want static analysis.</p>
+<h2>What is Static Analysis</h2>
+<p><strong>Static Analysis</strong> is a category of testing techniques that covers any metric of code that can be collected without executing the code. These techniques can be used to measure code against an agreed-upon standard without needing anything more from a developer than the code they&#8217;ve already written. This is a great way to touch in on the quality of the code when your developers are already over-worked, stressed, and up against the wall; they can put off writing unit tests until &#8220;later&#8221;, but they can&#8217;t prevent you from looking at the code and evaluating it. Obviously, you don&#8217;t want to just spring new metrics on people, but once a standard is in place, holding people to it shouldn&#8217;t be unreasonable.</p>
+<p>&nbsp;</p>
+<h2>Linting with ESLint</h2>
+<p>The most common static analysis tool you&#8217;ll hear JS developers talking about is <strong>linting</strong>. If you already know about this, feel free to skip down to the practical section, but if you&#8217;re picturing the fuzzy stuff that comes out of your dryer after you wash a load of blankets, allow me to dispel the confusion a little. The basic metaphor comes from using a<a href="http://smile.amazon.com/3M-836R-OS-Lint-Roller/dp/B00006IA8Q?sa-no-redirect=1"> lint roller</a> to clean little bits of lint (or cat hair) off a sweater so you look neater and more presentable. Linting, therefore, is the act of cleaning up little stylistic issues to make the overall code look neat and tidy.</p>
+<p>The most widely known linter is <strong>JSLint; </strong>I believe that&#8217;s where the name came from in the first place. You can test out how JSLint works at <a href="http://www.jslint.com/">their website</a>. Notice the checkboxes below the input box; JSLint is configurable, but not overly so. It was designed to enforce the <a href="http://javascript.crockford.com/code.html">Crockford Conventions</a>, which some JS developers hold to be the best possible standard for Javascript code style. However, as with all things in JS land, the &#8220;standard&#8221; is hotly debated, and in many places rejected entirely. Therefore, for linting, I prefer a tool called<a href="http://eslint.org/"> ESLint</a>. Every single rule in ESLint is configurable; at the minimum, this means it has three levels of enforcement: Do not enforce, Warn, or Error. Many rules also have configurable options, such as whether spaces should be before a comma, after a comma, both, or neither.</p>
+<p>So let&#8217;s say you&#8217;ve got ESLint, talked with your team, and come up with a configuration file that enforces your standards. We can fairly simply add that into our gruntfile for Jenkins to execute, using a package like <a href="https://www.npmjs.org/package/grunt-eslint">grunt-eslint</a>. However, we now have a problem. Unlike grunt-qunit-junit, grunt-eslint does NOT allow for writing to a file. We&#8217;d have to pipe the output, and that includes any output from grunt itself, which might make our file no longer conform to the desired output format without more massaging. So I prefer to install eslint as a standalone console application, as detailed <a href="http://eslint.org/docs/command-line-interface/">here</a>.</p>
+<p>Now our buildfile has two items:</p>
+<p>&nbsp;</p>
+<p><a href="/blog/jenkins_eslint.png"><img class="alignnone size-full wp-image-65" src="/blog/jenkins_eslint.png" alt="jenkins_eslint" width="1159" height="447" /></a></p>
+<p>That command line breaks down as follows:</p>
+<ul>
+<li><strong>eslint</strong> calls the linter</li>
+<li><strong>-c eslint.conf</strong> points it to our custom configuration file</li>
+<li><strong>-f checkstyle</strong> outputs the results in checkstyle format. This can be other formats like jslint, junit, or tap, but I found the checkstyle plugin to be to my liking.</li>
+<li><strong>file paths</strong> indicate what files should be linted. Here I&#8217;m only linting the models and views for my project</li>
+<li><strong>&gt; lintresults.xml</strong> is the linux way to pipe the results of the output into a file. This can be any file.</li>
+<li><strong>|| echo </strong>is, as with last time, a way to ensure that the build does not fail when linting fails. Again, the reporting plugin will take care of marking the build as unstable when the linting fails. Without this, linting errors will prevent Jenkins from moving on to the unit tests.</li>
+</ul>
+<p>We can then use the Checkstyle plugin (or any other plugin that can process Checkstyle reports) to display the results:</p>
+<p><a href="/blog/jenkins_checkstyle.png"><img loading="lazy" class="alignnone size-full wp-image-67" src="/blog/jenkins_checkstyle.png" alt="jenkins_checkstyle" width="1157" height="218" /></a></p>
+<p>&nbsp;</p>
+<p>And voila!</p>
+<p><a href="/blog/jenkins_checkstyle_output.png"><img loading="lazy" class="alignnone  wp-image-68" src="/blog/jenkins_checkstyle_output.png" alt="jenkins_checkstyle_output" width="646" height="285" /></a></p>
+<p>&nbsp;</p>
+<h2>Complexity with Plato</h2>
+<p>Another static analysis that can be useful to shed some light on code quality is <strong>complexity analysis</strong>. Now, if you&#8217;re planning to write angry comments, please keep in mind that all of these metrics measure one aspect of quality, and I don&#8217;t believe any of them are infallible be-all end-all measures. But complexity can tell you a little about what parts of your application are going to be more troublesome to maintain.</p>
+<p>The most common metric for complexity is <strong>cyclomatic complexity.</strong> This is a rough measure of code complexity created in 1976 by Thomas McCabe, defined as the count of the number of linearly independent paths through the source code. Basically, this tells you how much branching, looping, and nesting is present in a piece of code. Lower is easier to understand and maintain, but obviously, code with a complexity of 1 doesn&#8217;t do very much that&#8217;s interesting at all; it&#8217;s 100% deterministic, and will always do exactly the same thing, with no change in behavior based on inputs. Your basic &#8220;Hello World&#8221; program has a cyclomatic complexity of 1; FizzBuzz tends to be around 6 or so.</p>
+<p>Another metric of complexity is <strong>Halstead Complexity</strong>. This is a more robust set of measures proposed in 1977 by Maurice Halstead. These are calculated by counting the number of distinct operators, total number of operators, number of operands, and other such analysis to produce a slew of numbers. One such number is the <b>difficulty index</b>, which is half the number of distinct operators times the total number of operands divided by the number of distinct operands. In theory, this measures how difficult code is to maintain over time.</p>
+<p>As both of these metrics are strongly correlated with lines of code, the <strong>Maintainability Index</strong> seeks to relate them to each other and to the LOC to get an overall quick-and-dirty number to represent how difficult code is to maintain. This index was created in 1991 by Paul Oman and Jack Hagemeister, and it ranges from negative infinity to a &#8220;perfect&#8221; score of 171, achieved only by an empty file with 0  lines of code. They proposed that code scoring above about 65 should be considered easy to maintain.</p>
+<p>These metrics are all measured with a tool called <a href="http://jscomplexity.org/">JSComplexity</a>, a tool written by Paul Booth to easily measure the complexity of javascript code. The command-line version of this tool is <a href="https://github.com/philbooth/complexity-report">complexity-report</a>, and there&#8217;s a nicely formatted HTML reporter using that tool called <a href="https://github.com/es-analysis/plato">Plato</a>. From that we have a Grunt wrapper called <a href="https://github.com/jsoverson/grunt-plato">grunt-plato</a>, which we can use to generate an HTML report that can be included in Jenkins automatically. Still with me? 🙂</p>
+<p>The grunt setup is pretty straightforward, as before. We can add it to our existing file with a few lines:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">module.exports = function(grunt) {
+  // Project configuration.
+  grunt.initConfig({
+[...]
+   plato: {
+    complexity: {
+        options: {
+        jshint: false
+        },
+        files: {
+        'reports': ['../src/source/model/*/*.js', '../src/source/ui/*/*.js']
+        }
+    }
+    }
+  });
+  // These plugins provide necessary tasks.
+  grunt.loadNpmTasks('grunt-contrib-qunit');
+  grunt.loadNpmTasks('grunt-qunit-junit');
+  grunt.loadNpmTasks('grunt-plato');
+  // Default task.
+  grunt.registerTask('default', ['plato','qunit_junit','qunit']);
+};</pre>
+<p>I&#8217;ve turned off JSHint because I&#8217;m using ESLint above. If you like JSHint, you can leave it included and skip the whole section above about checkstyle.</p>
+<p>We already have the grunt file being run by jenkins, so we just add the report like so:</p>
+<p><a href="/blog/jenkins_plato_output.png"><img loading="lazy" class="alignnone size-full wp-image-69" src="/blog/jenkins_plato_output.png" alt="jenkins_plato_output" width="1148" height="217" /></a>And voila! It&#8217;ll appear on the left as a link:</p>
+<p><a href="/blog/jenkins_sidebar.png"><img loading="lazy" class="alignnone size-full wp-image-70" src="/blog/jenkins_sidebar.png" alt="jenkins_sidebar" width="316" height="285" /></a></p>
+<p>Which takes you right to the report.</p>
+<h2>Conclusions</h2>
+<p>There&#8217;s a lot more in the world of static analysis that I&#8217;d love to be able to show you. There are tools to generate dependency analyses, tools to find common bugs, tools for finding duplicated or dead code, tools to find potential security holes&#8230; but unfortunately, the tooling for javascript is rather limited. Compiled languages are always easier to analyse than interpreted ones, and strongly typed languages are easier to analyse than weakly typed ones. Frankly, though, with all the wonders javascript developers are able to produce, I have to wonder: does the community really care about quality? Maybe the tooling is limited because beyond linting and maybe some complexity, javascript developers aren&#8217;t interested in writing these kinds of tools.</p>
+<p>Maybe I&#8217;ll write some myself.</p>
+
+			</div><!-- .entry-content -->

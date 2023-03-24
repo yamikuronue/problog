@@ -1,0 +1,33 @@
+---
+categories:
+- Coldfusion
+date: "2014-02-01"
+tags:
+- coldfusion
+- debugging
+title: "On Coldfusion's ParseDateTime Function"
+---
+
+
+	
+		<div class="entry-content">
+		<p>I know I rarely talk about work on this blog, but today&#8217;s issue was a doozy and I want to be sure the information is out there someplace that can be found with a Google search.</p>
+<p>Today was February 3rd, and one of our services started blowing up with errors involved in date parsing. The obvious answers were immediately discarded: there had been no change over the weekend, no change to this service in weeks in fact, and yes, it HAD been working previously. It wasn&#8217;t Jan 1, or Feb 29, or any of the usual suspects for date mixups. Both Feb 3 and March 2 exist, so it&#8217;s not parsing the format wrong for some international format. What the heck was going on?</p>
+<p>We were able to trace the error back as far as the ColdFusion built-in function <a href="http://livedocs.adobe.com/coldfusion/8/htmldocs/help.html?content=functions_m-r_11.html">ParseDateTime</a>, but no further. It&#8217;s part of the language, so it&#8217;s not like we could pop it open and see under the hood. The line was simple:</p>
+<blockquote><p>dateEffective = ParseDateTime(replace(xmlArticle.startDate.xmlText,&#8221;T&#8221;,&#8221;&#8221;));</p></blockquote>
+<p>ParseDateTime is supposed to be a handy utility function to make a ColdFusion date object out of any conceivable formatted date string. Unfortunately, it can&#8217;t handle the<a href="http://www.w3schools.com/schema/schema_dtypes_date.asp"> XML date-time format</a> (2014-02-03T09:00:00) natively, so we helped it out by removing the T to make the format something it could parse.</p>
+<p>The more astute among you will have seen our mistake already, but I&#8217;ll explain it anyway.</p>
+<p>I don&#8217;t know what ParseDateTime looks like under the covers, but after today&#8217;s debugging session, I feel qualified to give a fairly good rough guess. I&#8217;m going to say step one of their algorithm involves a regex. Something simple, similar to (but not exactly like*) the following:</p>
+<blockquote><p>(19|20)?\d\d[- /.]0?([1-9]|1[012])[- /.]0?([1-9]|[12][0-9]|3[01])[- /.]?((0?[0-9]|1[0-2]):?){0,3}</p></blockquote>
+<p>You know, your basic date parsing. This will only rule out absurd dates; not all date-like strings are valid dates, but it will rule out things like 2013-13-40 while still allowing invalid dates like 2013-02-31. That&#8217;s where phase two comes in: date validation. A series of if ladders, something like</p>
+<blockquote><p>if month == 2 &amp;&amp; day &gt; 29 return invalid date</p>
+<p>if month == 2 &amp;&amp; day == 29 &amp;&amp; !isLeapYear(year) return invalid date</p></blockquote>
+<p>and so on and so forth. Standard stuff, really. All textbook, nothing to worry about here, no rigorous testing needed.</p>
+<p>Until  we passed it this date: 2014-02-0308:50:46.</p>
+<p>Now the clever among you have definitely figured out what&#8217;s wrong, but it took four of us over an hour to figure out what had happened, and I only eventually guessed because I suspected they were using a regex and so went through common regex debugging questions. You see, regexes like to be greedy. They like to gobble up as many characters for a single piece as possible. So instead of breaking that date into February 03, 2014, at 8:50:46 in the morning, it broke it into Feb 030, 2014, at 8:50:46 in the morning. That is to say, when it read the string &#8220;2014-02-03<strong>0</strong>8:50:46&#8243;, instead of treating that bolded 0 as the leading 0 for the hour 8, it read it as the final 0 in the date 30, which also had a leading 0 for no good reason. The regex matched on Feb 30, which the resulting if-ladder determined was an invalid date.</p>
+<p>I was able to verify that the timestamp &#8220;2014-04-0310:50:46&#8221; also came back with &#8220;invalid date&#8221;, so it&#8217;s not just Feb 3, but it is every single hour on Feb 3 as opposed to two narrow windows per month (between 10am and 1pm and between 10pm and midnight on the 3rd of any month with only 30 days in it), so it was noticed today and only today.</p>
+<p>The moral of this story is twofold: firstly, never trust your regexes to parse things without rigorous testing of edge cases, and secondly, <strong>always put a space between your date and time before passing a string to ColdFusion&#8217;s ParseDateTime.</strong></p>
+<p>The bolded sentence is being added to our Standards and Guidelines.</p>
+<p>*I know for a fact my quick regex is not identical because the real one can handle things like MM-DD-YYYY instead of YYYY-MM-DD, but at this point I&#8217;m not certain if it&#8217;s one monster regex or a series of &#8220;valid&#8221; date patterns that it iterates over until it gets a hit, so I threw something together for the sake of example and moved on.</p>
+
+			</div><!-- .entry-content -->

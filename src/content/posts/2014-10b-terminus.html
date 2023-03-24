@@ -1,0 +1,23 @@
+---
+categories:
+- Longer Tales
+- Server
+date: "2014-10-10"
+tags:
+- terminus
+- home projects
+- server
+title: "Introducing: Terminus"
+---
+	
+		<div class="entry-content">
+		<p>So in my &#8220;<a title="Introducing: Agni" href="http://bayley.green-gaillard.com/blog/?p=5">Introducing: Agni</a>&#8221; series, I explained the process I went through to get a used machine from Goodwill up and running to replace my previous living room server, Mercury, which exploded. I realize I left a loose end &#8212; I had to restore the mysql database from a several years old backup that I&#8217;d taken before I started backing up to the backup drive that died, and we just reconstructed the data after that point. Good thing a lot of the data was stored in flat files &gt;.&gt; I then set up regular backups to the same hard drive, intending to have them then copied to a backup drive once I had a replacement.</p>
+<p>According to my records (meaning, my blog), Agni was purchased in February 2013. It&#8217;s kind of sad, then, that in September 2014, when I switched internet providers, I lost the ability to have a living room server at all. My apartment complex moved to a ethernet setup with a central router in the front office, and they do not allow port forwards past that gateway :(.</p>
+<p>This is unacceptable, I told them, but in the meantime, my sites were all down and I wanted them up. So I finally caved and bought a VPS from <a href="https://www.digitalocean.com/?refcode=15cf5fd127bb">DigitalOcean</a>. (That link includes a referral code, by the way, if you want to go ahead and get $10 in credit. I used a code from a friend, and it ended up paying for 2 months of my new server setup, which was handy.) I went down my list of potential server names and settled on <b>Terminus</b>. Humming themes from <a href="https://www.youtube.com/watch?v=VQvOfIeUBHA">Majora&#8217;s Mask</a>, I set about transferring my files.</p>
+<p>Having been working with SQL Server at work, it was a real treat to move back to MySQL, by the way. Yes, I know, enterprise, scaling, blah-de-blah, but really, the ease of use of the mysqldump command to take a full backup and restore it elsewhere from the command line streamlined the whole process.</p>
+<p>The only snag I hit was when my ftp program lost about half the wordpress files because it couldn&#8217;t see them, which was annoying. I had to zip on agni, download via ftp,  upload via ftp, and unzip. But once I realized that, I was off and running.</p>
+<p>I took this opportunity to correct a few unusual filesystem conventions I&#8217;d used on agni, and to tighten the security a little. I also took the opportunity to install <a href="http://github.com/afaqurk/linux-dash">linux-dash</a> to make life easier on me when I go to check on the server, and as you can see, I bought a new domain name and uploaded a pet project I&#8217;d been working on a few weeks later.</p>
+<p>I guess the moral is that this stuff is not hard in this day and age. It takes very little money, very little time, and very little effort to migrate to the cloud, and I&#8217;m glad I did. I went with the $5/month tier, which got me 512MB ram and 20GB disk space; the ram&#8217;s a little tight, but it&#8217;s a good chance to streamline and optimize. I run this blog, two other installs of wordpress, and a few custom php sites on the box, and after I installed some caching into the most image-heavy wordpress install (it&#8217;s a multi-site install), it&#8217;s been running like a treat. Granted, I have very low traffic, so we&#8217;ll see later if upgrading to a bigger box causes issues, but honestly, I can&#8217;t imagine it would. I also stuck with apache for ease of administering, since I&#8217;m used to apache by now, but I considered moving to nginx for a good hot minute.</p>
+<p>I&#8217;ve never really been a hardware person; I prefer to work at the highest layer of abstraction that lets me get my work done. Why re-invent the kernel when I could be writing games, you know? I still have to find a good use for Agni, since I have the hardware lying around, but that shouldn&#8217;t be too hard. I&#8217;ve already got a few ideas floating around, but they&#8217;ll take time and money that I don&#8217;t plan to spend just yet. Maybe over the holidays when I take some time off work.</p>
+
+			</div><!-- .entry-content -->
