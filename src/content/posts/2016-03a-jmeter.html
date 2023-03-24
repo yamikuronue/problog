@@ -1,0 +1,44 @@
+---
+categories:
+- Teatime
+date: "2016-03-01"
+tags:
+- testing
+- performance testing
+title: "Teatime: Testing Application Performance"
+---
+<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week: </em></strong><em>Still on a chai kick from last week, today I&#8217;m sipping on <a href="http://dryadtea.com/blacktea/firebirds-child-chai">Firebird&#8217;s Child Chai</a> from Dryad Teas. I first was introduced to Dryad Tea at a booth at a convention; I always love being able to pick out teas in person, and once I&#8217;d found some good ones I started ordering online regularly. It&#8217;s a lovely warm chai, with a great kick to it. </em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s topic: Testing Application Performance</h2>
+<p>This is the first in a two-part miniseries about performance testing. The first time I gave this talk, it was a high-level overview of performance testing, and when I asked (as I usually do) if anyone had topic requests for next week, they all wanted to know about jMeter. So I spent a week learning a little bit of jMeter, and created a Part 2.</p>
+<p>This talk, however, remains high-level. I&#8217;m going to cover three main topics:</p>
+<ul>
+<li>Performance Testing</li>
+<li>Load Testing</li>
+<li>Volume Testing</li>
+</ul>
+<p>I have a bit of a tradition when I talk about performance testing: I always illustrate my talks with pictures of adorable bunnies. After all, bunnies are fast, but also cute and non-threatening. Who could be scared of perf tests when they&#8217;re looking at bunnies?</p>
+<figure style="width: 410px" class="wp-caption aligncenter"><img loading="lazy" class="" src="http://www.publicdomainpictures.net/pictures/90000/nahled/white-angora-bunny-rabbit.jpg" alt="White Angora Bunny Rabbit" width="410" height="273" /><figcaption class="wp-caption-text">Aww, lookit da bunny!</figcaption></figure>
+<h3>Performance Testing</h3>
+<p>Performance testing is any testing that assesses the performance of the application. It&#8217;s really a super-group over the other two categories that way, in that load testing and volume testing are types of performance testing. However, when used without qualifiers, we&#8217;re typically talking about measuring the response time under a typical load, to determine how fast the application will perform in the average, everyday use case.</p>
+<p>You can measure the entire application, end to end, but it&#8217;s often valuable to instead test small pieces of functionality in isolation. Typically, we do this the same way a user would: we make an HTTP request (for a web app), or a series of HTTP requests, and measure how long it took to come back. Ideally, we do this a lot of times, to simulate a number of simultaneous users of our site. For a desktop application, instead of adding &#8220;average load&#8221;, we are concerned about the average hardware: we run the application on an &#8220;average&#8221; system and measure how long it takes to, say, repaint the screen after a button click.</p>
+<p>But what target do you aim for? The <a href="http://www.nngroup.com/articles/website-response-times/">Nielsen Normal Group </a>outlined some general guidelines:</p>
+<ul>
+<li>One tenth of a second response time feels like the direct result of a user&#8217;s action. When the user clicks a button, for example, the button should animate within a tenth of a second, and ideally, the entire interaction should complete within that time. Then the user feels like they are in control of the situation: they did something and it made the computer respond!</li>
+<li>One second feels like a seamless interaction. The user did something, and it made the computer go do something complicated and come back with an answer. It&#8217;s less like moving a lever or pressing a button, and more like waiting for an elevator&#8217;s door to close after having pressed the button: you don&#8217;t doubt that you made it happen, but it did take a second to respond.</li>
+<li>Ten seconds and you&#8217;ve entirely lost their attention. They&#8217;ve gone off to make coffee. This is a slow system.</li>
+</ul>
+<figure style="width: 379px" class="wp-caption aligncenter"><img loading="lazy" src="http://www.publicdomainpictures.net/pictures/90000/nahled/baby-bunny-rabbit-1398531344LCx.jpg" alt="Baby Bunny Rabbit" width="379" height="276" /><figcaption class="wp-caption-text">Bunny!</figcaption></figure>
+<h3>Load Testing</h3>
+<p>Load testing is testing the application under load. In this situation, you simulate the effects of a number of users all using your system at once. This generally ends up having one of two goals: either you&#8217;re trying to determine what the maximum capacity of your system is, or you&#8217;re trying to figure out if the system gracefully degrades when it exceeds that maximum capacity. Either way, you typically start with a few users and &#8220;ramp up&#8221; the number of users over a period of time. You should figure out before you begin what the maximum capacity you intend to have is, so you know if you&#8217;re on target or need to do some tuning.</p>
+<p>Like the previous tests, this can be done at any layer; you can fire off a ton of requests at your API server, for example, or simulate typical usage of a user loading front-end pages that fire requests at the API tier. Often, you&#8217;ll do a mix of approaches: you&#8217;ll generate load using API calls, then simulate a user&#8217;s degraded experience as though they were browsing the site.</p>
+<p>There&#8217;s an interesting twist on load testing where you attempt to test for sustained load: what happens to your application over a few days of peak usage rather than having a few hours and then a downtime in between? This can sometimes catch interesting memory leaks and so forth that you wouldn&#8217;t catch in a shorter test.</p>
+<figure style="width: 361px" class="wp-caption aligncenter"><img loading="lazy" src="/blog/Oolong_the_Rabbit's_last_performance_(2003).jpg" alt="" width="361" height="300" /><figcaption class="wp-caption-text">Bunny under load</figcaption></figure>
+<h3>Volume Testing</h3>
+<p>While load testing handles the case of a large amount of users at once, volume testing is more focused on the data: what happens when there&#8217;s a LOT of data involved. Does the system slow down finding search results when there&#8217;s millions or billions of records? Does the front-end slow to a crawl when the API returns large payloads of data? Does the database run out of memory executing complex query plans when there&#8217;s a lot of records?</p>
+<figure style="width: 471px" class="wp-caption aligncenter"><img loading="lazy" src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Deilenaar.jpg/1280px-Deilenaar.jpg" alt="Deilenaar.jpg" width="471" height="314" /><figcaption class="wp-caption-text">A high volume of bunnies</figcaption></figure>
+<p>Do you load test at your organization? How have you improved your load testing over the years? What challenges do you face?</p>
+
+			</div><!-- .entry-content -->

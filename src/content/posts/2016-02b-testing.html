@@ -1,0 +1,39 @@
+---
+categories:
+- Teatime
+date: "2016-02-10"
+tags:
+- testing
+- theory
+title: "Teatime: What kinds of testing should I do?"
+---
+	
+		<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week:</em></strong><em> It&#8217;s been a stressful (and cold!) week as I pre-write this, so I&#8217;m chilling out with some Toasted Caramel Rooibos from <a href="http://www.subrosatea.com/rooibos-and-herbal-tisanes-caffeine-free">Sub Rosa Teas</a>. </em></p>
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s topic: What kind of testing should I do?</h2>
+<p>For the first QA-content-filled teatime, I wanted to start at the beginning and touch briefly on what kinds of testing there are, and when to use each of them. This is not intended to be an exhaustive list, more of a gentle overview while we sip tea and meditate on our own projects and the testing each one needs.</p>
+<h3>Things to consider</h3>
+<p>When you&#8217;re putting together a test plan, and you&#8217;re considering performing various types of tests, you should consider the following:</p>
+<ul>
+<li>What is the purpose of this kind of test?</li>
+<li>In what situations is this test most suited?</li>
+<li>What differentiates this test type from others?</li>
+<li>Why are we performing this test?</li>
+</ul>
+<p>Testing without purpose is not so much testing as playing; if there&#8217;s no business need, and no reason to perform the test, all you&#8217;re doing is wasting your time. Furthermore, if you already have your needs covered, adding more types of tests won&#8217;t help anything, by definition: your needs are already covered, and further testing is just wasting time.</p>
+<h3>The Testing Quadrants</h3>
+<p><a href="/blog/test-quadrants.png" rel="attachment wp-att-114"><img loading="lazy" class="aligncenter wp-image-114 size-full" src="/blog/test-quadrants.png" alt="test quadrants" width="614" height="414" sizes="(max-width: 614px) 100vw, 614px" /></a></p>
+<p>I came across a version of this diagram in the book <a href="http://continuousdelivery.com/">Continuous Delivery</a> by Jez Humble and David Farley, and I really liked it, so I&#8217;ve recreated my own version here. There are two axes represented above, both equally important. On the horizontal axis, testing can either support development efforts, which is to say, it can provide input into the ongoing effort of building the software to correct the course by small degrees; or, it can critique a finished product, producing a feedback loop for development of future enhancements and/or future products. On the vertical axis, tests can be developer-facing, giving feedback to the development team on the project, or they can be user-facing, giving feedback to the BA from a user&#8217;s perspective of the software.</p>
+<p>Therefore, in this model, <strong>acceptance tests</strong> are user-oriented tests; do not write acceptance tests for things that are invisible to the user! On the other hand, they support development, so we want to run them as early as possible to tighten the feedback loop so the devs can course-correct. Which argues for an Agile approach 🙂</p>
+<p><strong>Unit tests</strong> are similar to Acceptance Tests in that they support development and so should be written and executed as early as possible,  but they are developer-facing, so they should absolutely test for things that only developers can see, like method signatures and code organization.</p>
+<p><strong>Exploratory tests</strong> are like Acceptance Tests in that they are user-facing, and thus should only focus on things the end user can see; however, they are a critique, intended to find things when the product is in a stable, &#8220;release candidate&#8221; state. They serve to prove to the business that what we built meets their expectations, not to aid developers in building it.</p>
+<p>And finally, <strong>Nonfunctional acceptance tests</strong> allow us to critique the product from a development standpoint: now that we know it works (because of Unit tests), we need to see if it&#8217;s performant, secure, et cetera.</p>
+<h3>What about regression testing?</h3>
+<p>You may have noticed that regression testing isn&#8217;t in any of the four quadrants. It doesn&#8217;t really fit into this graph; it sort of lies orthogonal to the graph, or envelops the entire thing. Regression testing is simply the act of verifying that requirements which were previously tested to work have  not been broken since the test was run. Without qualifiers, we typically mean Functional Regression Testing, which is simply running old acceptance or unit tests over again to ensure that the functionality was not broken. You can also, however, perform nonfunctional regression testing, say, to verify that software that was previously fast has not gotten slower, or software that previous installed on Windows still does after being enhanced to run on Linux.  Exploratory regression testing would be exploratory testing of areas that have not changed in the most recent version.</p>
+<h3>So what kinds should I do?</h3>
+<p>All of them 🙂</p>
+<p>Honestly, only you can answer the question of what types of testing are right for your business needs, your product, your development team, your release cycle, et cetera. Hopefully, however, you have some ideas now that you&#8217;ve paused to consider the types available and what goals they fulfill. So, you tell me: what kinds of testing will you do?</p>
+
+			</div><!-- .entry-content -->

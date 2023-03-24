@@ -1,0 +1,34 @@
+---
+categories:
+- Teatime
+date: "2016-03-10"
+tags:
+- testing
+- performance testing
+title: "Teatime: Performance Testing Basics with jMeter"
+---
+	<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week: </em></strong><em>Black Cinnamon by <a href="http://www.subrosatea.com/black-tea">Sub Rosa</a> tea. It&#8217;s a nice spicy black tea, very like a chai, but with a focus on cinnamon specifically; perfect for warming up on a cold day.</em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s topic: Performance Testing with jMeter</h2>
+<p>This is the second in a two-part miniseries about performance testing. After giving my talk on performance testing, my audience wanted to know about jMeter specifically, as they had some ideas for performance testing. So I spent a week learning a little bit of jMeter, and created a Part 2. I&#8217;ve augmented this talk with my learnings since then, but I&#8217;m still pretty much a total novice in this area 🙂</p>
+<p>And, as always when talking about performance testing, I&#8217;ve included bunnies.</p>
+<h3>What can jMeter test?</h3>
+<p>jMeter is a very diverse application; it works at the raw TCP/IP layer, so it can test out both your basic websites (by issuing a GET over HTTP),  or your API layer (with SOAP or XML-RPC calls). It also ships with a JDBC connector, so it can test out your database performance specifically.  It also comes with basic configuration for testing LDAP, email (POP3, IMAP, or SMTP), and FTP protocols. It&#8217;s pretty handy that way!</p>
+<figure style="width: 369px" class="wp-caption aligncenter"><img loading="lazy" class="" src="https://pixabay.com/static/uploads/photo/2016/01/19/14/55/bunny-1149060_960_720.jpg" alt="" width="369" height="277" /><figcaption class="wp-caption-text">A handy bunny</figcaption></figure>
+<h3>Setting up jMeter</h3>
+<p>The basic unit in jMeter is called a test plan; you get one of those per file, and it outlines what will be run when you hit &#8220;go&#8221;. In that plan, you have the next smaller unit: a thread group. Thread groups contain one or more actions and zero or more reporters or listeners that report out on the results. A test plan can also have listeners or reporters that are global to the entire plan.</p>
+<p>The thread group controls the number of threads allocated to the actions underneath them; in layman&#8217;s terms, how many things it does simultaneously, simulating how many users. There&#8217;s also settings for a ramp-up time (how long it takes to go from 0 users/threads to the total number) and the number of executions. The example in the documentation lays it out like so: if you want 10 users to hit your site at once, and you have a ramp-up time of 100 seconds, each thread will start 10 seconds after the previous one, so that after 100 seconds you have 10 threads going at once, performing the same action.</p>
+<p>Actions are implemented via a unit called a &#8220;Controller&#8221;. Controllers come in two basic types: samplers and logical controllers. A sampler sends a request and waits for the response; this is how you tell the thread what it&#8217;s doing. A logic controller performs some basic logic, such as &#8220;only send this request once ever&#8221; (useful for things like logging in) or &#8220;Alternate between these two requests&#8221;.</p>
+<figure style="width: 467px" class="wp-caption aligncenter"><img loading="lazy" class="" src="https://pixabay.com/static/uploads/photo/2013/03/19/23/07/easter-bunny-95096_960_720.jpg" alt="" width="467" height="311" /><figcaption class="wp-caption-text">Multiple bunnies working together</figcaption></figure>
+<p>You can see here an example of some basic logic:</p>
+<p><a href="/blog/jmeter.png" rel="attachment wp-att-141"><img loading="lazy" class="aligncenter wp-image-141 " src="/blog/jmeter.png" alt="jmeter" width="827" height="465" srcset="/blog/jmeter.png 909w, /blog/jmeter-300x169.png 300w, /blog/jmeter-768x432.png 768w" sizes="(max-width: 827px) 100vw, 827px" /></a></p>
+<p>In this example, once only, I log in and set my dealership (required for this request to go through successfully). Then, in a loop, I send a request to our service (here called PQR), submitting a request for our products. I then verify that there was a successful return, and wait 300 milliseconds between requests (to simulate the interface doing something with the result). In the thread group, I have it set to one user, ramping up in 1 second, looping once; this is where I&#8217;d tweak it to do a proper load test, or leave it like that for a simple response check.</p>
+<figure style="width: 607px" class="wp-caption aligncenter"><img loading="lazy" class="" src="https://pixabay.com/static/uploads/photo/2014/05/03/20/13/rabbit-337224_960_720.jpg" alt="" width="607" height="455" /><figcaption class="wp-caption-text">Skeptical bunny is skeptical</figcaption></figure>
+<p>In this test, I believe I changed it to 500 requests and then ran the whole thing three times until I felt I had enough data to take a reasonable average. The graph results listener gave me a nice, easy way to see how the results were trending, which gave me a feel for whether or not the graph was evening out. My graph ended up looking something like this:</p>
+<p><a href="/blog/graph.png" rel="attachment wp-att-142"><img loading="lazy" class="wp-image-142 aligncenter" src="/blog/graph.png" alt="graph" width="633" height="433" /></a>The blue line is the average; breaks are where I ran another set of tests. The purple is the median, which you can see is basically levelling out here. The red is the deviation from the average, and the green is the requests per minute.</p>
+<figure style="width: 574px" class="wp-caption aligncenter"><img loading="lazy" class="" src="https://pixabay.com/static/uploads/photo/2015/10/26/02/54/european-rabbits-1006621_960_720.jpg" alt="" width="574" height="380" /><figcaption class="wp-caption-text">Good result? bad result? Bunnies.</figcaption></figure>
+<p>Have you ever done anything with jMeter, readers? Any tips on how to avoid those broken graph lines? Am I doing everything wrong? Let me know in the comments 🙂</p>
+
+			</div><!-- .entry-content -->

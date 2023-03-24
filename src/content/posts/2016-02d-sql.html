@@ -1,0 +1,53 @@
+---
+categories:
+- Teatime
+date: "2016-02-20"
+tags:
+- testing
+- sql
+- sql server
+title: "Teatime: SQL Testing"
+---
+		<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week: </em></strong><em>I like a nice, spicy chai in the winter to warm me up, especially when I&#8217;m grappling with rough questions like today&#8217;s topic. Rather than subject myself to excessive caffeine on a cold afternoon, I&#8217;m sipping on<a href="http://www.subrosatea.com/rooibos-and-herbal-tisanes-caffeine-free"> Rooibos Chai</a> from Sub Rosa Tea. Just the smell alone makes me more alert and ready to take on the day, and the flavor does not disappoint! </em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s Topic: Testing SQL &#8211; How and why?</h2>
+<p>In today&#8217;s teatime, I wanted to touch on an often-overlooked part of the stack: the database. At my current company, we have a separate development team that focuses entirely on stored procedures and database development, above and beyond the usual operational DBAs. And yet, before I became the QA coordinator, all our database testing was still manual! I set about researching how we could test the business logic stored in our stored procedures.</p>
+<h3>Two main approaches</h3>
+<p>There are two overarching approaches to database testing. The one I chose not to focus on due to our company&#8217;s setup was to test the database from outside the database. This is particularly popular in .net shops, as Visual Studio includes many tools that make it easy to unit test your stored procedures in the same suite you&#8217;re using to unit test your code. I would imagine this would also be useful in a Node shop, as you could do much the same thing. Most of our database access comes from our Coldfusion API layer, which is a little more challenging to set tests up in; furthermore, the Coldfusion code was maintained by different people than the SQL, and the SQL team was not comfortable enough in Coldfusion (or .Net) to write their tests there.</p>
+<p>The other approach, the one I will be focusing on in this talk, is to test the database from within the database: using something like the popular <a href="http://tsqlt.org/">tSQLt</a> framework to write tests in SQL that test your SQL. This is a similar approach to how unit testing in other layers work; it&#8217;s very rare to see unit tests written in a different language than the code under test. Furthermore, you can keep the unit tests right next to the code, just like you would in otehr layers. It provides less overhead in the form of context-switching between writing code and writing SQL, which is great when you specialize in SQL itself.</p>
+<h3>How to write unit tests</h3>
+<p>In any language, there&#8217;s basically three phases to a unit test:</p>
+<ul>
+<li><strong>Arrange </strong>the environment by performing any setup steps or preconditions that are required,</li>
+<li><strong>Act</strong> on the system, usually by invoking the item under test, and</li>
+<li><strong>Assert</strong><strong> </strong> that the result was within acceptable parameters</li>
+</ul>
+<p>In this sample unit test (from the tSQLt documentation), you can see the steps in action:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="sql">CREATE PROCEDURE testFinancialApp.[test that ConvertCurrency converts using given conversion rate] AS BEGIN 	DECLARE @actual MONEY; 
+    DECLARE @rate DECIMAL(10,4); 
+    SET @rate = 1.2; 
+    DECLARE @amount MONEY; 
+    SET @amount = 2.00; 
+    SELECT @actual = FinancialApp.ConvertCurrency(@rate, @amount); 
+    DECLARE @expected MONEY; 
+    SET @expected = 2.4; --(rate * amount) 
+    EXEC tSQLt.AssertEquals @expected, @actual; 
+END; 
+GO
+</pre>
+<p>First we <strong>arrange</strong> the environment by declaring some variables, setting them to the amounts needed for the test. We <strong>act</strong> by calling the procedure (FinancialApp.ConvertCurrency), and then we <strong>assert</strong> that the actual response was what we expected (with a comment about why we expected it to be that).</p>
+<p>Note how the expected result is a solid number, not the result of doing some math. If the math were wrong in the procedure, duplicating the logic here wouldn&#8217;t help us test anything. Instead, work the algorithm by hand, coming up with the expected outcome, and hard-code it into the test. That ensures that no mistakes were made implementing the algorithm as it was on paper.</p>
+<p>One of the things you&#8217;re not seeing is that when this is run, it&#8217;s wrapped in a transaction, which is automatically rolled back at the end of the execution. This prevents any side effects from affecting your data, such as insertion of records into a table. The library also provides functions for mocking out tables and stubbing other functions, which I can cover in a future teatime.</p>
+<h3>But Why?</h3>
+<p>But why would you want to test stored procedures and functions? To me, it&#8217;s pretty straightforward: if there&#8217;s business logic there, it needs to be tested. But if you&#8217;re not already convinced, here&#8217;s some talking points to mull over:</p>
+<ul>
+<li>Code that is unit tested ends up being cleaner, more efficient, and easier to refactor. This is well documented in terms of program code, but it&#8217;s also been examined for database code as well; for example, see <a href="https://www.simple-talk.com/sql/sql-training/test-driven-database-development-%E2%80%93-why-bother/?utm_source=simpletalk&amp;utm_medium=article&amp;utm_content=tSQLt_greglucas&amp;utm_campaign=sqltest">this blog post about test-driven database development</a>, or <a href="http://sqlblog.com/blogs/jamie_thomson/archive/2012/01/26/thoughts-on-test-driven-database-development.aspx">this one</a>, or <a href="http://tsqlt.org/146/database-test-driven-development/">this one</a>.</li>
+<li>Tests provide living documentation of the expectation of the code. This is also true of stored procedures, some of which can run into dozens or hundreds of lines, with dizzying amounts of table joins and complex branching. A simple suite of tests can easily tell a new developer what exactly they&#8217;re looking at &#8212; and ensure that they didn&#8217;t break anything.</li>
+<li>You can plug the tests into a development pipeline like we discussed last week for instant feedback upon committing your stored procedures. This of course only works if your procs are in version control, but of course they already are, right? 🙂</li>
+</ul>
+<p>&nbsp;</p>
+<p>Do you test your database? Why or why not? Discuss in the comments 🙂</p>
+
+			</div><!-- .entry-content -->

@@ -1,0 +1,37 @@
+---
+categories:
+- Teatime
+date: "2016-02-15"
+tags:
+- testing
+- continuous integration
+title: "Teatime: Continuous Deployment"
+---
+		<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week: </em></strong><em>An old standby, Twinings Ceylon Orange Pekoe. There&#8217;s no orange flavor in it; the Orange refers to the size of the leaves. It&#8217;s a good staple tea I can find in my local supermarkets, solid and dependable &#8212; just like a deployment pipeline should be. </em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Deployment Pipelines</h2>
+<p>Today&#8217;s topic is a little more afield from last week&#8217;s discussion of testing types, but I feel it firmly falls under the umbrella of quality. A good deployment pipeline, as you will see shortly, improves the maintainability of code and prevents unwanted regressions.</p>
+<p>Like last week, much of this talk touches on concepts laid out in  <a href="http://continuousdelivery.com/">Continuous Delivery</a> by Jez Humble and David Farley. If your company isn&#8217;t already performing continuous delivery, I highly recommend the book, as it talks through the benefits and how to get there in small increments. In the book, they lay out a simple goal:</p>
+<blockquote><p>“Our goal as software professionals is to deliver useful, working software to users as quickly as possible”</p></blockquote>
+<p>Note that they said &#8220;software professionals&#8221;, not developers. After all, isn&#8217;t that the ultimate goal of SQA as well? And of the BAs and project managers?</p>
+<h3>Feedback Loops</h3>
+<p>In order to achieve the goal &#8212; delivering software that is both <strong>useful</strong> and <strong>working</strong> &#8212; Humble and Farley suggest that there needs to be a tight feedback loop of information about how well the software works and how useful it is to the end user delivered back to the development team so they can adjust their course in response. In order to validate traditional software, one typically has to build it first; they advocate building the software after every change so that the build is always up to date and ready for validation. Automate this process, including the delivery of build results to the development team, and you have created a <strong>feedback loop</strong> &#8212; specifically, the first step in a deployment pipeline.</p>
+<h3>Automated Deployment</h3>
+<p>In order to validate software that builds correctly, it must be installed, either on an end-user-like testing machine or to a web server that will then serve up the content (depending on the type of software). This, too, can be automated &#8212; and now you&#8217;ve gained benefits for the development team (who get feedback right away when they make a change that breaks the installation) as well as the testing team (who always have a fresh build ready to test). Furthermore, your infrastructure and/or operations teams have benefits now as well; when they need to spin up a new instance for testing or for a developer to use, they now can deploy to it using the same automated script.</p>
+<p>Automated deployment is a must for delivering working software. The first deploy is always the most painful; when it&#8217;s done by hand at 2am in production, you&#8217;ve already lost the war for quality. Not only should your deploys be automated, they should be against production-like systems, ideally created automatically as well (humans make mistakes, after all).</p>
+<h3>Continuous Testing</h3>
+<p>And now we see how this pipeline connects to QA&#8217;s more traditional role: testing. Once we have the basic structure in place, typically using a CI Server to automatically build on every commit, we can start adding automatic quality checks into the process to give development feedback on the quality of the code they&#8217;ve committed. This can include static checks like linting (automated maintainability checking) as well as simple dynamic tests like unit tests or performance tests. Ideally, however, you want to keep your feedback loop tight; don&#8217;t run an eight-hour automated regression suite on every commit. The key is to get information back to the developer before they get bored and wander off to get coffee 🙂</p>
+<h3>Essential Practices</h3>
+<p>In order to make this really work for your organization, there are a number of practices that must be upheld, according to the authors of Continuous Delivery. These are basic maintenance sort of things, required for code to keep the level of quality it has over time. They are:</p>
+<ul>
+<li>Commit early, commit often. Uncommitted code can&#8217;t be built, and thus, can&#8217;t be analysed.</li>
+<li>Don&#8217;t commit broken code. Developers love to &#8220;code first, test later&#8221;, and, if they&#8217;re not used to this principle, tend to commit code with broken unit tests, intending to go back and clean it up &#8220;later&#8221;. Over time, the broken windows of old failing tests inoculate people against the warning tests can give. They become complacent; &#8220;oh, that always fails, pay it no mind&#8221;, they say, and then you might as well not have tests at all.</li>
+<li>Wait for feedback before moving on. If your brain&#8217;s on the next task already, you&#8217;ll file away a broken unit test under the &#8220;I&#8217;ll fix it later&#8221; category, and then the above will happen. Especially, never go home on a broken build!</li>
+<li>Never comment out failing tests. Why are they failing? What needs to be fixed? Commenting them out means removing all their value. &#8216;</li>
+</ul>
+<p>&nbsp;</p>
+<p>Do any of you use continuous testing and/or a deployment pipeline? Maybe with software like Jenkins, Travis CI, or Bamboo? Let&#8217;s chat in the comments!</p>
+
+			</div><!-- .entry-content -->

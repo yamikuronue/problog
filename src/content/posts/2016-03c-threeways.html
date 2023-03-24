@@ -1,0 +1,67 @@
+---
+categories:
+- Teatime
+date: "2016-03-15"
+tags:
+- testing
+- devops
+title: "Teatime: The Three Ways of Devops"
+---
+
+
+	
+		<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week: </em></strong><em>I&#8217;m feeling herbal today, chilling out with a refreshing cup of mint tea. I grow my own mint, but you can find good varieties at your local grocery store in all probability. I like mine with honey and lemon. </em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s topic: The Three Ways of Devops</h2>
+<p>DevOps is one of my favorite topics to touch on. I firmly feel that the path to better quality software lies through the DevOps philosophy, even more so than through good QA. After all, finding bugs in finished software can only do so much; it&#8217;s better to foster a mindset in developers that prevents them from occurring in the first place.</p>
+<h3>What is DevOps?</h3>
+<p>DevOps is essentially a cultural phenomenon that aims to build a working relationship and harmony between development, QA, and operations. You can&#8217;t buy devops; you can&#8217;t hire devops. You have to shift your culture to follow the tao of devops, one step at a time. Anyone trying to sell you instant devops is lying, and you should avoid them like the plague. In that way, it&#8217;s a lot like Agile 🙂</p>
+<p>DevOps is a logical extension of Agile, in fact. It was developed from the theories laid out in The Phoenix Project, a book I suggested reading a few weeks back, and made famous by a talk at the Velocity conference called &#8220;10+ Deploys Per Day: Dev and Ops Cooperation at Flickr&#8221; by John Allspaw and Paul Hammond.</p>
+<p>You can see in the below graphic how it sort of extends the agile cycle into an infinity symbol:</p>
+<p><img loading="lazy" class="aligncenter" src="/blog/Agile-vs-DevOps.jpg" alt="" width="460" height="265" /></p>
+<p>For teams that are already agile, the jump is pretty straightforward: the definition of &#8220;done&#8221; now means, not just tested, but released, working in production. It adds a mindset that devs should absolutely care about how their code is doing in production, that the feedback loop should go all the way to the end user and back to the dev.</p>
+<h3>The First Way</h3>
+<p>Let me explain each way with a graphic designed by Gene Kim, one of the authors of The Phoenix Project:</p>
+<p><img loading="lazy" class="aligncenter" src="/blog/first-way2.webp" alt="" width="768" height="368" /></p>
+<p>The first way is the left-to-right flow of development to release. It promotes systems thinking, trying to get people in each stage of the way (us QA folks are about halfway along that line) to consider not just their own piece in the assembly line, but the line as a whole, maximizing for global efficiency rather than local. What good is testing quickly if the devs can&#8217;t get you another release until two weeks after you finish testing? What good is finding and fixing a ton of bugs if the user won&#8217;t see the fixes for two years? What good is a million passing tests if the application crashes after three hours in prod?</p>
+<p>The principles necessary here to enact the first way are:</p>
+<ul>
+<li>Small batch sizes. Don&#8217;t release huge projects once a year, release small chunks of functionality regularly.</li>
+<li>Continuous build. If it doesn&#8217;t build, it won&#8217;t go to prod.</li>
+<li>Continuous integration. If your code builds but not when your neighbor&#8217;s code is added, it&#8217;ll blow up in production if it&#8217;s only ever tested in isolation.</li>
+<li>Continuous deployment. Get the code on a server ASAP so it can be tested</li>
+<li>Continuous testing. Unit tests, integration tests, functional tests; we want to know ASAP when something&#8217;s broken.</li>
+<li>Limit the amount of work in progress; too many balls in the air means you never know what&#8217;s going and what&#8217;s not.</li>
+</ul>
+<p>The biggest rule of the first way: <strong>never</strong> pass defects downstream. Fix them where you find them.</p>
+<h3>The Second Way</h3>
+<p>The first way is the left-to-right flow of software the second way concerns the right-to-left flow of information back down to development:</p>
+<p><img loading="lazy" class="aligncenter" src="/blog/second-way1.webp" alt="" width="749" height="396" /></p>
+<p>Information needs to flow back from QA to Dev, back from staging to dev, back from deployment to dev, back from production to dev. The goal is to prevent problems from occurring over again when we already solved that issue. We need to foster faster detection of problems, and faster recovery from them when they occur. As QA professionals, we know you have to create quality at the source; you can&#8217;t test it in. In order to do that, we need to embed knowledge where it can do the most good: at the source.</p>
+<p>In order to achieve the second way,  you need to:</p>
+<ul>
+<li>Stop the production line when tests fail. Getting that crucial information back to development is key, and fixing problems before moving on to new development is crucial to ensure quality.</li>
+<li>Elevate the improvement of work over the work itself. If there&#8217;s a tool you could spend 2 hours building that would save 10 hours per week, why wouldn&#8217;t you spend the two hours and build it?</li>
+<li>Fast automated test suites. Overnight is too slow; we need information ASAP, before the dev&#8217;s attention span wanders.</li>
+<li>Shared goals and shared pain between dev and ops. When ops has a goal to keep the system up, dev should be given the same goal; when the system goes down, devs should help fix it. Their knowledge can be highly useful in an incident.</li>
+<li>Pervasive production information. Devs should know at all times what their code is doing in the wild, and be keeping an eye on things like performance and security.</li>
+</ul>
+<h3>The Third Way</h3>
+<p>We have a cycle, it&#8217;s very agile, we&#8217;re testing all the things; what more could we possibly learn? The Third Way, it turns out, is fostering a culture of experimentation and repetition in order to prepare for the unexpected and continue to innovate.</p>
+<p><img loading="lazy" class="aligncenter" src="/blog/third-way.webp" alt="" width="744" height="417" /></p>
+<p>We have two competing concerns here in the third way, the yin and yang of innovation: how do we take risks without hurting our hard-won stability? The key is repetitive practice. It&#8217;s the same principle behind fire drills: when you do something regularly, it become second nature, and you&#8217;re ready to handle when it happens for real. That leaves you free to experiment and take risks, falling back on your well-practiced habits to save you when something goes wrong.</p>
+<p>Key practices are:</p>
+<ul>
+<li>Promote risk taking over mindless order taking</li>
+<li>Create an environment of high trust over low trust</li>
+<li>Spend 20% of every cycle on nonfunctional requirements, such as performance and security concerns</li>
+<li>Constantly reinforce the idea that improvements are encouraged, even celebrated. Bring in cake when someone achieves something. Make it well known that they&#8217;ve done something good.</li>
+<li>Run recovery drills regularly, making sure everyone knows how to recover from common issues</li>
+<li>Warm up with code kata (or test kata) daily</li>
+</ul>
+<p>&nbsp;</p>
+<p>Where are you in your journey toward DevOps? Have you begun? What can you take from this back to your daily life?</p>
+
+			</div><!-- .entry-content -->

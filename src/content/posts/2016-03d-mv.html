@@ -1,0 +1,74 @@
+---
+categories:
+- Teatime
+date: "2016-03-20"
+tags:
+- maintainability
+- programming
+title: "Teatime: Maintainable Code, MV*, and Backbone"
+---
+		<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week: </em></strong><em><a href="http://smile.amazon.com/Royal-Black-Japan-Latte-Bonus/dp/B00F411P04?sa-no-redirect=1">Royal Milk Tea</a>. In Japan, when they want black tea, they buy it powdered with milk powder already added so they don&#8217;t have to go buy milk. This stuff is super simple to make since it&#8217;s instant, but it tastes amazing. You can often find it at an Asian grocery store if you happen to have one in your area.</em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s topic: Maintainable code with MV*</h2>
+<p>Today we&#8217;re venturing into the area of maintainability. There are a lot of design patterns out there to increase the maintainability of your code, but none are as widespread in the web world as MV*</p>
+<h3>What? MV*?</h3>
+<p>The MV[something] family of patterns (abbreviated here as MV*, where * is a wildcard character) consist of a Model, a View, and&#8230; something else. The most common types are as follows:</p>
+<ul>
+<li>MVC: Model, View, Controller. This is the classic model, the basic template that the others are following.</li>
+<li>MVVM: Model, View, View-Model</li>
+<li>MVP: Model, View, Presenter</li>
+</ul>
+<p>Backbone, a popular MV* framework for Javascript, provides tools to create Models and Views, but leaves the third piece up to you. We&#8217;ll be having a look at the pieces in the next few sections here.</p>
+<h3>Models</h3>
+<p>The model contains the data the application needs to work. Generally, this is an Object in an OOP paradigm; you might have, say, a Product model that knows the description and price of a single product, plus can work out the sales tax given the country, or some such. This is independant of any particular presentation, and should be global to your application. The model layer contains the business logic pertaining to the domain; for example, a Car model knows it can only have four Tires attached, but a Truck might have 18.</p>
+<p>The thing to keep in mind here is that the model is a layer like any other, and can contain more than just your specific object models. It can also contain data mappers that store the models into a database, services to translate models into a different format, data in the database held in a  normalized format, and the code needed to reconstruct those model objects out of the normalized data. There&#8217;s a lot going on here, and all of it can contain business logic that needs to be tested.</p>
+<h3>Views</h3>
+<p>Views are responsible for providing an interface to the user to interact with the data. In a classic server-based web app, your view is HTML, maybe a little injected javascript. In a single-page Javascript app, you&#8217;ll have View objects that construct widgets on the DOM, plus the HTML that&#8217;s actually injected. In a Windows Presentation Foundation app, you&#8217;ll have some XML defining your view.</p>
+<h3>View-models</h3>
+<p>This confused me for the longest time until I realized what the name was trying to imply. The Model layer models your application; the View-Model is a model of your <em>View<strong>. </strong></em>Everything you need to render a view &#8212; the data, the methods, the callbacks &#8212; live in a model, and your actual view &#8212; the DOM, or whatever &#8212; just renders what&#8217;s in the view-model. This is the pattern Knockout.js uses: the DOM is the view, and your methods bind to it from the view-model. You never write code to update the view, it just happens automatically.</p>
+<h3>Controllers</h3>
+<p>The controller represents the logic of the application (or page, in a multi-page js app). It determines what models are needed and what views should be displayed based on the context. For example, in ASP.NET, you might have a bit of HTML (your view) showing a record from the Users table (your Model). When you click the edit pencil, the view dynamically changes out to a form (a different view) showing the same record. When you click save, it swaps back. The controller contains this sort of logic.</p>
+<p>In an MVP or MVVM setup, without a controller, often the logic is controlled via a REST-style &#8220;route&#8221;: one page has one view and one model and they compose directly, and to do anything with that page, you make another HTTP request which returns another view with another model.</p>
+<h3>Practical Example: Backbone</h3>
+<p>Let&#8217;s take a look at one Javascript library that&#8217;s become very popular in recent years. These code samples are from <a href="https://cdnjs.com/libraries/backbone.js/tutorials/">cdnjs</a>, by the way, which is a great place to learn about Backbone. Backbone can be used in an MVC style very easily: your controller summons up views and models and composes the two together.<sup>[1]</sup> One model maps to one endpoint in the API layer, which serves up one model; for example, this might be a model for a user:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">var UserModel = Backbone.Model.extend({ 
+    urlRoot: '/user', 
+    defaults: { 
+        name: '', 
+        email: '' 
+    } 
+});
+
+user.save(userDetails, { 
+    success: function (user) { alert(user.toJSON()); } 
+});</pre>
+<p>You can see here how we extend the basic model to create our own, and only override what we want to use. The urlRoot tells it where to look for the API backend; the defaults tell us what properties we expect to see back as well as providing sensible defaults in case a new object is created during the course of our application.</p>
+<p>A view might look something like this:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="js">var SearchView = Backbone.View.extend({
+    initialize: function(){
+      this.render();
+    },
+    render: function(){
+      var template = _.template( $("#search_template").html(), {} );
+      this.$el.html( template );
+    },
+    events: {
+      "click input[type=button]": "doSearch"
+    },
+    doSearch: function( event ){
+      // Button clicked, you can access the element that was clicked with event.currentTarget
+      alert( "Search for " + $("#search_input").val() );
+    }
+  });
+
+  var search_view = new SearchView({ el: $("#search_container") });
+</pre>
+<p>Here we have an element ($el) we will bind our template to; that&#8217;s usually passed in when the view is instantiated. We also have a template here, in this case an underscore template. We then render the template when we&#8217;re asked to render.</p>
+<p>We use Backbone&#8217;s events array to register for certain events on our element, and when the button is clicked, we perform an action (in this case, an alert).</p>
+<p>Do you think this code is easier to maintain than the usual giant closure full of methods? Why or why not? Have you seen any maintenance nightmares recently you think could have been sorted out by using MV* better?</p>
+<hr />
+<p>[1]: This assumes a REST backend, which we can talk about another day.</p>
+
+			</div><!-- .entry-content -->

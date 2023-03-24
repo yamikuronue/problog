@@ -1,0 +1,91 @@
+---
+categories:
+- Teatime
+date: "2016-04-01"
+tags:
+- maintainability
+- programming
+title: "Teatime: Measuring Maintainability"
+---
+	<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week:</em></strong><em> Today I&#8217;m living it up with Teavana&#8217;s<a href="http://www.teavana.com/us/en/tea/oolong-tea/monkey-picked-oolong-tea-31358.html"> Monkey-picked Oolong</a> tea. A lot of people have complained that it&#8217;s not a very good Oolong, but I&#8217;m a black tea drinker most of the time, and I found it quite delightful. Your mileage may vary, of course!</em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s Topic: Measuring Maintainability</h2>
+<p>Last week we touched on maintainable code, and one design pattern you could use to make your code more maintainable. Today, I wanted to pull back a bit and talk about how to measure the maintainability of your code. What can you use to objectively determine how maintainable your code is and measure improvement over time?</p>
+<h3>Maintainability</h3>
+<p>First of all, what is maintainability? The ISO 9126 standard describes five key components:</p>
+<ul>
+<li>Modularity</li>
+<li>Reusability</li>
+<li>Analyzability</li>
+<li>Modifiability</li>
+<li>Testability</li>
+</ul>
+<p>(I know you all like the last one ;)). Modular code is known to be a lot easier to maintain than blobs of spaghetti; that&#8217;s why procedures, objects, and modules were invented in the first place instead of keeping all code in assembly with gotos. Reusable code is easier to maintain because you can change the code in one place and it&#8217;s updated everywhere. Code that is easy to analyze is easier to maintain, because the learning curve is lessened. Code that cannot be  modified obviously cannot be maintained at all. And finally, code that is easy to test is easier to maintain because you can test if your changes broke anything (using regression tests, typically unit tests in this case).</p>
+<p>These things are hard to measure objectively, though; it&#8217;s much easier to give a gut feel guided by these measures than a hard number.</p>
+<h3>Complexity</h3>
+<p>Complexity is a key metric to measure when talking about maintainability. Now, before we dive in, I want to touch on the difference between code that is <strong>complex</strong> and code that is <strong>complicated</strong>. Complicated code is difficult to understand,  but with enough time and effort, can be known. Complexity, on the other hand, is a measure of the number of interactions between entities. As the number of entities grows, the potential interactions between them grows literally exponentially, and at some point, the software becomes too complex for your brain to physically keep in working memory. At that point, nobody really &#8220;knows&#8221; the software, and it&#8217;s difficult to maintain.</p>
+<p>An example of 0-complexity code:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="php">print('hello world')</pre>
+<p>This is Conway&#8217;s Game of Life written in a language called APL:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="null">⍎'⎕',∈N⍴⊂S←'←⎕←(3=T)∨M∧2=T←⊃+/(V⌽"⊂M),(V⊖"⊂M),(V,⌽V)⌽"(V,V ←1¯1)⊖"⊂M'
+</pre>
+<p>So there&#8217;s your boundaries when talking about complexity 🙂</p>
+<h3>Halstead Complexity</h3>
+<p>In 1977, Maurice Howard Halstead developed a measure of complexity for C programs in an attempt to quantify software development. He wanted to identify measurable aspects of code quality and calculate the relationships between them. His measure goes something like this:</p>
+<ul>
+<li>Define N<sub>1</sub> as the total number of operators in the software. This includes things like arithmatic, equality, assignmant, logical operators, control words, function calls, array definitions, et cetera.</li>
+<li>Define N<sub>2</sub> as the total number of operands in the software. This includes identifiers, variables, literals, labels, function names, et cetera. &#8216;1 + 2&#8217; has one operator and two operands, and &#8216;1 + 1 + 1&#8217; has three operands and two operators.</li>
+<li>Define n<sub>1</sub> as the number of distinct operators in the software; basically, N<sub>1</sub> with duplicates removed.</li>
+<li>Define n<sub>2</sub> as the number of distinct operands in the software; basically, N<sub>2</sub> with duplicates removed.</li>
+<li>The Vocabulary (n) is defined as  n<sub>1</sub> +  n<sub>2</sub></li>
+<li>The Length (N) is defined as N<sub>1</sub> +  N<sub>2</sub></li>
+<li>The Volume (V) is defined as N * log<sub>2</sub>n</li>
+<li>The Difficulty (D) is defined as (n<sub>1</sub>/2) * (N<sub>2</sub>/n<sub>2</sub>)</li>
+<li>The Effort (E) is defined as V * D</li>
+<li>The Time required to write the software is calculated as E/18 seconds</li>
+<li>The number of bugs expected is V/3000.</li>
+</ul>
+<p>This seems like magic, and it is, a little bit: it&#8217;s not super accurate, but it&#8217;s a reasonable starting place. Personally I love the part where you can calculate the time it took you to write the code only after you&#8217;ve written it 🙂</p>
+<h3>Cyclomatic Complexity</h3>
+<p>Thankfully, that&#8217;s not the only measure we have anymore. A much  more popular measure is that of Cyclomatic Complexity, developed by Thomas McCabe Sr in 1976. Cyclomatic Complexity is defined as the number of linearly independent paths through a piece of code. To calculate it, you construct a directed control flow graph, like so:</p>
+<p><a href="/blog/cyclogrpah.png" rel="attachment wp-att-152"><img loading="lazy" class="wp-image-152 aligncenter" src="/blog/cyclogrpah-239x300.png" alt="cyclogrpah" width="166" height="209" srcset="/blog/cyclogrpah-239x300.png 239w, /blog/cyclogrpah.png 400w" sizes="(max-width: 166px) 100vw, 166px" /></a></p>
+<p>Then you can calculate the complexity as follows:</p>
+<ul>
+<li>Define E as the number of edges in the graph (lines)</li>
+<li>Define N as the number of nodes in the graph (circles)</li>
+<li>Define P as the number of connected components (a complete standalone segment of the graph which is not connected to any other subgraph; this graph has one component)</li>
+<li>The complexity is computed as E &#8211; N + 2P</li>
+</ul>
+<p>However, a much more practical method has arisen that is a simplification of the above:</p>
+<ul>
+<li>Start with a complexity of 1</li>
+<li>Add one for every &#8220;if&#8221;, &#8220;else&#8221;, &#8220;case&#8221; or other branch (such as &#8220;catch&#8221; or &#8220;then&#8221;)</li>
+<li>Add one for each loop (&#8220;while&#8221;, &#8220;do&#8221;, &#8220;for&#8221;)</li>
+<li>Add one for each complex condition (&#8220;and&#8221;, &#8220;or&#8221;)</li>
+<li>The final sum is your complexity.</li>
+</ul>
+<p>Automated complexity measuring tools typically use that method of calculation. A function with a Cyclomatic Complexity under 10 is a simple program, 20-50 is complex, and over 50 is very high risk and difficult to test thoroughly.</p>
+<h3>Bus Factor</h3>
+<p>Another great measure I like to talk about when talking about maintainability is the Bus Factor<sup>[1]</sup> of the code. The Bus Factor is defined as the number of developers who would have to be hit by a bus before the project can no longer be maintained and is abandoned. This risk can be mitigated by thorough documentation, but honestly, how many of us document a project super thoroughly? Usually we assume we can ask questions of the senior devs who have their fingers in all the pies. The Bus Factor tells us how many (or how few) devs really worked on a single application over the years.</p>
+<p>You can calculate the Bus Factor as follows:</p>
+<ul>
+<li>Calculate the author of each file in the repository (based on the original developer and the number of changes since)</li>
+<li>Remove the author with the most files</li>
+<li>Repeat until 50% of the files no longer have an author. The number of authors removed is your Bus Factor</li>
+</ul>
+<p>I created a fun tool you can run on your own repositories to determine the Bus Factor: <a href="https://github.com/yamikuronue/BusFactor">https://github.com/yamikuronue/BusFactor</a></p>
+<p>The folks at <a href="http://mtov.github.io/Truck-Factor/">http://mtov.github.io/Truck-Factor/</a> created their own tool, which they didn&#8217;t share, but they found the following results:</p>
+<ul>
+<li>Rails scored a bus factor of 7</li>
+<li>Ruby scored a 4</li>
+<li>Android scored a 12</li>
+<li>Linux scored a 90</li>
+<li>Grunt scored a 1</li>
+</ul>
+<p>Most systems I&#8217;ve scanned have scored a 1 or a 2, which is pretty scary to be honest. How about you? What do your systems score? Are there any other metrics you like to use?</p>
+<hr />
+<p>[1]: Also known as the Lotto Factor at my work, defined as the number of people who would have to win the lottery and quit before the project is unmaintainable.</p>
+
+			</div><!-- .entry-content -->
