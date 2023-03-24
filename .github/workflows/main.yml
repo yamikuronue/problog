@@ -6,22 +6,24 @@ jobs:
   build: 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Do a git checkout including submodules
+        uses: actions/checkout@master
         with:
-          submodules: true  # Fetch Hugo themes (true OR recursive)
-          fetch-depth: 0    # Fetch all history for .GitInfo and .Lastmod
+          submodules: true
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v2
         with:
           hugo-version: '0.111.3'
           extended: true
+          
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           known_hosts: ${{ secrets.SSH_HOST }}
           if_key_exists: fail
+          
       - name: Generate and deploy website
         uses: ronvanderheijden/hugo-rsync-deployment@master
         env:
