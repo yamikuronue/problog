@@ -1,0 +1,132 @@
+---
+categories:
+- Devops
+date: "2021-03-01"
+tags:
+- jenkins
+- deployment
+- devops
+title: "Porting Jenkins logs to Newrelic"
+---
+
+
+	<div class="entry-content">
+		
+<p>Greetings, world. It&#8217;s been a while, hasn&#8217;t it? It&#8217;s not as though I haven&#8217;t had interesting technical problems to blog about in the past few years, only that my previous job had kept me so busy I didn&#8217;t have the time or energy to write up the problems I solved. But as of last December I started another new job, and I now have the time I need to really reflect and write up the things I&#8217;m learning. </p>
+
+
+
+<p>(Expect a lot of terraform going forward 🙂 )</p>
+
+
+
+<h2>The Problem</h2>
+
+
+
+<p>Today, let&#8217;s look at a practical problem I&#8217;m having. Warning: This will include several dead-ends I ran into along the way, or problems I didn&#8217;t have the technical knowledge to solve. If you came here from google and just want the solution, you&#8217;ll want the section on Logstash, as that&#8217;s my preferred solution.</p>
+
+
+
+<p>The ticket: write a POC for porting Jenkins build logs to &#8220;somewhere searchable&#8221;. It was trivial to use the logstash plugin to port them to an ELK stack in AWS, but one of the options on the table was Newrelic Logging, which proved to be a more challenging solution. </p>
+
+
+
+<p>Newrelic provides the following methods for log ingestion as of the time of this writing: </p>
+
+
+
+<blockquote class="wp-block-quote"><p>&#8211; Forward your logs <a href="https://docs.newrelic.com/docs/logs/enable-new-relic-logs/1-enable-logs/forward-your-logs-using-new-relic-infrastructure-agent">using our Infrastructure agent</a> or our <a href="https://docs.newrelic.com/docs/logs/enable-logs/enable-logs/kubernetes-plugin-logs">Kubernetes plugin</a>.<br>&#8211; Use our plugins for well-known log forwarders, like <a href="https://docs.newrelic.com/docs/logs/enable-logs/enable-logs/fluentd-plugin-logs">Fluentd</a>, <a href="https://docs.newrelic.com/docs/logs/enable-logs/enable-logs/fluent-bit-plugin-logs">Fluent Bit</a>, and <a href="https://docs.newrelic.com/docs/logs/enable-logs/enable-logs/logstash-plugin-logs">Logstash</a>.<br>&#8211; Stream or ship your logs from Amazon using <a href="https://docs.newrelic.com/docs/logs/enable-new-relic-logs/1-enable-logs/aws-lambda-sending-logs-s3">AWS Lambda</a> or <a href="https://docs.newrelic.com/docs/logs/enable-new-relic-logs/1-enable-logs/stream-logs-new-relic-using-kinesis-data-firehose">Kinesis</a>.<br>&#8211; Send your logs data using the <a href="https://docs.newrelic.com/docs/introduction-new-relic-logs-api">Logs API</a>.</p></blockquote>
+
+
+
+<p>So let&#8217;s start at the top and work our way down. </p>
+
+
+
+<h2>Infrastructure agent</h2>
+
+
+
+<p>Our jenkins setup is on an ec2 instance, so it&#8217;s simple as pie to follow the included NewRelic instructions to set up an infrastructure agent on the box. Installation took about a minute, and I was able to hook it up to the file <code>/var/log/jenkins/jenkins.log</code>, which is listed as the Jenkins master log file. Problem solved, right?</p>
+
+
+
+<p>Wrong.</p>
+
+
+
+<p>You can see the contents of this file in Jenkins: from the dashboard, click Manage Jenkins, then click System Log. And there you&#8217;ll find what I found: this log is supremely unhelpful. Well, I take that back. It&#8217;s useful for diagnosing problems with Jenkins itself, and it does list things like errors checking git repositories for changes, but the build logs it ain&#8217;t. This might be <em>useful</em> to have in New Relic, sure, but it&#8217;s not what I was looking for: the build logs, so we can determine what caused build failures. </p>
+
+
+
+<p>(To uninstall the infrastructure agent, by the way, you can do <code>sudo yum remove newrelic-infra</code> or whatever the reverse operation is for your package manager.)</p>
+
+
+
+<h2>Logstash</h2>
+
+
+
+<p>So onto the next idea, and the idea that seemed most likely to work. Jenkins has plugins for fluent.d and logstash (I&#8217;ve never heard of logbit before today). I used the <a href="https://plugins.jenkins.io/logstash/">logstash plugin</a> to push logs to the ELK stack in that POC, so that seemed like a logical place to start. </p>
+
+
+
+<p>For Newrelic capability, there is a plugin to logstash. Note that we&#8217;re talking about two kinds of plugin here: the plugin to jenkins called &#8220;jenkins logstash plugin&#8221;, and the plugin to logstash itself called &#8220;newrelic logstash plugin&#8221;. These two things are <em>not</em> interchangeable and do <em>not</em> go on the same machine. </p>
+
+
+
+<p>The logstash plugin for Jenkins is a bit of a misnomer; it started with only logstash, but it also has pure elasticsearch capability. What this means is that you can point it directly to an AWS elasticsearch instance, set the plugin to elasticsearch mode, and you&#8217;re good to go. However, logstash itself is a separate thing: a program that sits on top of elasticsearch and does preprocessing on the data coming into the system. Logstash is the &#8216;L&#8217; in ELK stack, as it plays well with both elasticsearch and kibana. But when you create an elasticsearch domain on AWS, you only get an &#8216;EK&#8217; stack &#8212; you have to run Logstash separately. </p>
+
+
+
+<p>In order to integrate NewRelic with Logstash, you have to run Logstash somewhere, and AWS will not manage that for you. This means one of two less than ideal options: you can run Logstash on its own EC2 instance, incurring the costs associated with that, or you can run Logstash on the Jenkins instance. I would opt to do the latter, as this is the only place we&#8217;d be using Logstash in our infrastructure, but you can make the decision you need to make for your infrastructure needs. Once you have Logstash running, you need to install the NewRelic plugin into Logstash, then set up the Logstash Jenkins plugin to forward to Logstash which then forwards to New Relic. </p>
+
+
+
+<h2>Fluent.d</h2>
+
+
+
+<p>The other option is Fluent.d. We are already using Fluent.d in our container environment as a sidecar to our ECS instances, and using that to forward our production logs to NewRelic. So this is the option I&#8217;d prefer to use for our ecosystem. However, this comes with its own challenges. </p>
+
+
+
+<p>In Jenkins, the Logstash plugin was simple to set up. Furthermore, it contained a checkbox that allowed all build logs to be automatically sent through the plugin to Logstash or Elasticsearch. The <a href="https://github.com/jenkinsci/fluentd-plugin">Fluent.d plugin</a>, by contrast, requires every build be edited to include a &#8220;send log through fluent.d&#8221; step. This means we would have a staggered rollout, and it&#8217;s all too likely for a build to be missed or set up incorrectly in the future such that the logs are not shipped to New Relic. Obviously this is far from ideal. </p>
+
+
+
+<p>Other than that, fluent.d is basically identical to Logstash in broad concept. You will need to run the fluent.d software somewhere: an EC2 instance, on the Jenkins node, et cetera. It&#8217;s easy enough to attach a sidecar to an ECS container, but you&#8217;ll need to keep the agent up to date wherever it&#8217;s installed for Jenkins to use. Once installed, you will have to install the NewRelic plugin to configure it to send the logs to NewRelic. </p>
+
+
+
+<p>At the end of the day, for this application I don&#8217;t see a real advantage to using Fluent.d over Logstash. The plugin is clunkier, and you still have to maintain the software on the Jenkins node. </p>
+
+
+
+<p>A note about Fluent Bit: I&#8217;ve never used it, but from a quick google it claims to be less processor-intensive than either of the other two options. So it may be a good fit for installing alongside Jenkins. It works in basically the same way: run the agent somewhere, install the NewRelic plugin, and set up Jenkins to send to it. I don&#8217;t see a plugin for it, however, so I ruled it out of my search for now. </p>
+
+
+
+<h2>The Logs API</h2>
+
+
+
+<p>I&#8217;ll skip Kinesis and Lamda for now, as we don&#8217;t have Jenkins hooked up to either of those systems to try and ingest the logs. I do see <a href="https://github.com/andskli/aws-kinesis-logs-plugin">a plugin</a> to hook Jenkins up to Kinesis, but it doesn&#8217;t look, ah&#8230; quite production-ready. So that leaves one other interesting option: the logs API. </p>
+
+
+
+<p>Jenkins has <a href="https://github.com/devconsoft/console-log-to-workspace-plugin">a plugin </a>that allows one to write the console log to disk at the end of the build as a build step. Couple this with a script task and you can then use curl or wget to upload the file to the <a href="https://docs.newrelic.com/docs/logs/log-management/log-api/introduction-log-api">Logs API.</a> </p>
+
+
+
+<p>Or so I thought. As it turns out, the Logs API is set up to take one log message at a time, rather than a whole file to be chopped up. I expect that&#8217;s why they suggest using a log parser like Logstash in the first place: it can do the slicing and dicing, then call the Logs API with each message in the log. </p>
+
+
+
+<h2>The Bottom Line</h2>
+
+
+
+<p>At the end of the day, you&#8217;re going to need something to process the logs from Jenkins. I recommend installing Logstash on the same box as the Jenkins server and using the Logstash plugin to forward to localhost on the correct port. That way you get the benefit of an easier to use plugin, and an industry-standard log parsing engine to process the logs and forward them on to NewRelic. But if there&#8217;s some reason to use Fluent.d instead, that&#8217;d be my second choice, and honestly it&#8217;s not that much worse than Logstash. </p>
+			</div><!-- .entry-content -->

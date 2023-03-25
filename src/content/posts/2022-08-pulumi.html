@@ -1,0 +1,102 @@
+---
+categories:
+- Devops
+- Quick Tips
+date: "2022-08-01"
+tags:
+- javascript
+title: "Some thoughts on switching to Pulumi"
+---
+
+	<div class="entry-content">
+		
+<p>I&#8217;ve become very comfortable with Terraform over the past several years of my career. So of course, the company wants to switch from Terraform to Pulumi, a newer competitor with a very different outlook on how IAC should be written. </p>
+
+
+
+<h2>Prerequisites</h2>
+
+
+
+<p>Terraform uses declarative code for IAC &#8212; you declare what you want to exist, and it generates the path to get there itself. Pulumi is much the same, however, while Terraform is written in Hashicorp Configuration Language which boils down to a bunch of static json-like declarations, Pulumi code is written in any of a number of turing-complete programming language. Terraform was written for people used to configuration files, while Pulumi was written for programmers. </p>
+
+
+
+<p>I thought it would be easy to jump from one to the other, especially since I know quite a bit of Node.js and Javascript and we&#8217;re using Typescript as our language of choice. But having written my first Pulumi module, I can safely say I was wrong. Here&#8217;s what I needed to know before I could even begin to learn Pulumi. </p>
+
+
+
+<p>In order to understand any of the code, you need to know Javascript. If you prefer learning from books, O&#8217;reilly has great options, but I prefer to learn by doing, so I recommend <a href="https://www.npmjs.com/package/javascripting">javascripting. </a>Javascripting is a tutorial that assumes no prior programming knowledge and walks one through how to write programs in javascript via exercises designed to show off various features of the language. </p>
+
+
+
+<p>But Javascript isn&#8217;t the language I&#8217;m trying to learn in order to learn Pulumi.  In theory, Typescript is &#8220;just&#8221; javascript but with types added. In practice, I found myself struggling a little to understand the flow of a more advanced program like a Pulumi module. There are conventions and ideas present in typescript that aren&#8217;t the way javascript chose to go. So it&#8217;s important to get a solid foundation. I&#8217;m using the tutorial <a href="https://www.typescripttutorial.net/">typescripttutorial.net</a> to learn not just the how but the why of typescript. </p>
+
+
+
+<p>Now, what else do you need to understand about Pulumi to get started? Well, first off:</p>
+
+
+
+<h2 id="mce_10">Stacks are everything</h2>
+
+
+
+<p>Now the first major difference between Pulumi and Terraform is how you generally handle stacks. In Terraform, using stacks has been mostly counterproductive across my career; at ClassPass, my current employer, we&#8217;ve used folders for environments and had them call central modules that define what goes in an environment rather than try to call the same .tf files using stacks. In Pulumi, however, stacks are a first-order object. Everything starts with stack creation, and everything runs in a stack. </p>
+
+
+
+<p>However, because everything is built around stacks, stacks also have their own IAC configs saved on disk and in your repository. </p>
+
+
+
+<figure class="wp-block-image"><img width="526" height="318" src="/blog/Screen-Shot-2022-08-22-at-4.18.40-PM.png" alt="" class="wp-image-298" /><figcaption>Here you can see my lab stack yaml file sitting among other environments yaml files</figcaption></figure>
+
+
+
+<p>These files tend to be very short, containing just the information needed to identify the aws profile and the variables file. The latter is how you pass different variables to different environments living in different stacks. </p>
+
+
+
+<figure class="wp-block-image"><img loading="lazy" width="652" height="326" src="/blog/Screen-Shot-2022-08-22-at-4.21.56-PM.png" alt="" class="wp-image-299" /><figcaption>Pulumi.bay-gaillard.yaml </figcaption></figure>
+
+
+
+<p>That last variable, with a .ts slapped on the end for typescript, will be the filename for the input variables. Which brings me to my next big point:</p>
+
+
+
+<h2>Pulumi modules are applications</h2>
+
+
+
+<figure class="wp-block-image"><img loading="lazy" width="220" height="218" src="/blog/220px-Function_machine2.svg_.png" alt="" class="wp-image-300"  /></figure>
+
+
+
+<p>In Terraform, everything is a static file. It&#8217;s all configuration, with any actual code hidden behind the scenes in the Terraform engine. But Pulumi modules are not static configuration, they are functioning applications. They take input from the stack-name.ts file and they output Pulumi objects. The outputs are much like terraform outputs: you can use them to string together modules, read them from the stack information, et cetera. But the inputs you define yourselves, and they can be anything, including complex json objects:</p>
+
+
+
+<p>Pulumi modules are running Typescript code that has an odd quirk, which is, whenever you create an object from the Pulumi libraries, it changes the state of your cloud provider to make that object in reality. Now, granted, there&#8217;s a preview command and a gated check before you actually run the program, but you can also do literally anything else Typescript can do, including reading from apis from remote sources, taking in input on the command line, drawing a little ASCII picture in your console, anything. </p>
+
+
+
+<p>I can&#8217;t stress this enough: <strong>Pulumi is a lot more powerful than Terraform. </strong>In Terraform, if Hashicorp didn&#8217;t create a way for you to do a thing, there&#8217;s just no way to do it. You can&#8217;t create structures to represent things there isn&#8217;t a provider for (though you can always write your own provider I suppose). But for Pulumi, you can do anything your heart desires mixed in with your Pulumi code. And that freedom has a cost: you have to think a lot more about what it is you&#8217;re trying to do in order to achieve what you want. </p>
+
+
+
+<p>I was tasked with writing a very small module: one that takes in a second stack name and, assuming there is a waiting peering connection request from a transit gateway in that stack to a transit gateway in the current stack, accepts the request. To do this according to my company&#8217;s established patterns, I had to create three interfaces, a sub-function, and about 120 lines of code. And that was me trying not to overcomplicate things!  </p>
+
+
+
+<p>But there&#8217;s definite upsides as well. The code I wrote is well defined and easy to read. It&#8217;s separated into a file for the interfaces and a file for the actual flow of code. It&#8217;s got unit tests and it&#8217;s type safe. It&#8217;s a well-architected application, but it is an application. And that&#8217;s important, because not every devops professional is even interested in learning to program, let alone good at it.</p>
+
+
+
+<h2>A final word</h2>
+
+
+
+<p>So should you switch to Pulumi? Well, it really depends. Are you getting everything you need out of terraform? Are you bought into the ecosystem with Terraform Enterprise? Then you probably will find the high cost of switching to be prohibitive of your efforts to switch. But if you&#8217;re reaching the limits of what Terraform can do, and you&#8217;ve got engineers who are happy learning to be programmers as well as systems engineers, then give Pulumi a shot. You might surprise yourself with what&#8217;s possible. </p>
+			</div><!-- .entry-content -->

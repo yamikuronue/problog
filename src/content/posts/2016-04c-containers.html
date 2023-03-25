@@ -1,0 +1,79 @@
+---
+categories:
+- Teatime
+date: "2016-04-15"
+tags:
+- docker
+- deployment
+- vagrant
+title: "Teatime: Containers and VMs"
+---
+
+		<div class="entry-content">
+		<p><em>Welcome back to Teatime! This is a weekly feature in which we sip tea and discuss some topic related to quality. Feel free to bring your tea and join in with questions in the comments section.</em></p>
+<p><strong><em>Tea of the week: </em></strong><em><a href="http://www.subrosatea.com/black-tea">Ceylon by Sub Rosa Tea</a>. This is a nice, basic, bold tea, very astringent; it&#8217;s great for blending so long as you don&#8217;t choose delicate flavors to blend with. It really adds a kick!</em><br />
+<p><a href="/blog/teaset2pts.png" rel="attachment wp-att-116"><img loading="lazy" class="size-medium wp-image-116 aligncenter" src="/blog/teaset2pts-300x264.png" alt="teaset2pts" width="300" height="264" srcset="/blog/teaset2pts-300x264.png 300w, /blog/teaset2pts-768x676.png 768w,/blog/teaset2pts-1024x901.png 1024w, /blog/teaset2pts.png 1138w" sizes="(max-width: 300px) 100vw, 300px" /></a></p>
+<h2>Today&#8217;s Topic: Containers and virtualization</h2>
+<p>Today, I&#8217;m going to give you a brief overview of a technology I think might be helpful when running a test lab. So often as testers we neglect to follow trends in development; we figure, devs love their fancy toys, but the processes for testing software really don&#8217;t change, so there&#8217;s no need to pay much heed to what they&#8217;re doing. Too often we forget that, especially as automation engineers, we are writing software and using software and immersing ourselves in software just like they are. So it&#8217;s worth taking the time to attend tooling talks from time to time, see if there&#8217;s anything worth picking up.</p>
+<h3>Vagrant</h3>
+<p>A tool I&#8217;ve picked up and put down a few times over the past year or so is Vagrant. Vagrant makes it very easy to provision VMs; you can store the configuration for the server needed to run software right with the source code or binaries. Adopting a system in which developers keep the vagrantfiles up to date and testers use them to spin up test instances can ensure that every test we run is on a valid system configuration, and both teams know what the supported configurations entail.</p>
+<p>At a high level, the workflow is simple:</p>
+<ol>
+<li>Create a Vagrantfile</li>
+<li>On the command line, type &#8220;vagrant up&#8221;</li>
+<li>Wait for your VM to finish booting</li>
+</ol>
+<p>In order for this to work, however, you have to have what&#8217;s called a &#8220;provider&#8221; configured with Vagrant. This is a specific VM technology that you&#8217;re using at your workplace; in my experiements, I&#8217;ve used Virtualbox, but if you&#8217;re already using something like VMWare or a cloud provider like AWS for your test lab, there&#8217;s integrations with those systems as well.</p>
+<p>When creating the vagrantfile, you first select a base image to use. Typically, this will be a machine with a given version of a given OS and possible some software that&#8217;s more complex to install (to save time). HashiCorp, makers of Vagrant, provide a number of base machines that can be used, or you can create your own. This of course means that every VM you bring up has the same OS and patch level to begin with.</p>
+<p>The next step is provisioning the box with the specific software you&#8217;re using. This is where you would install your application, any dependencies it has, and any dependencies of those dependencies, and so on. Since everything is installed automatically, everything is installed at the same version and with the same configuration, making it really easy to load up a fresh box with a known good state. Provisioning can be as simple as a handful of shell scripts, or it can use any of a number of provisioning systems, such as Chef, Ansible, or Puppet.</p>
+<p>Here is a sample vagrantfile:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="ruby"># -*- mode: ruby -*-
+
+  $provisionScript = &lt;&lt;SCRIPT
+    #Node &amp; NPM
+    sudo apt-get install -y curl
+    curl -sL https://deb.nodesource.com/setup | sudo bash -  #We have to install from a newer location, the repo version is too old
+    sudo apt-get install -y nodejs
+    sudo ln -s /usr/bin/nodejs /usr/bin/node
+    cd /vagrant
+    sudo npm install --no-bin-links
+SCRIPT
+
+# vi: set ft=ruby :
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+Vagrant.configure(2) do |config|
+  # The most common configuration options are documented and commented below.
+  # For a complete reference, please see the online documentation at
+  # https://docs.vagrantup.com.
+
+  # Every Vagrant development environment requires a box. You can search for
+  # boxes at https://atlas.hashicorp.com/search.
+  config.vm.box = "hashicorp/precise64"
+
+  config.vm.provider "virtualbox" do |v|
+    v.customize ["setextradata", :id, "VBoxInternal2/SharedFoldersEnableSymlinksCreate/v-root", "1"]
+  end
+  config.vm.network "private_network", ip: "192.168.33.11"
+  
+  #Hosts file plugin
+  #To install: vagrant plugin install vagrant-hostsupdater
+  #This will let you access the VM at servercooties.local once it's up
+  config.vm.hostname = "servercooties.local"
+  
+  config.vm.provision "shell",
+  inline: $provisionScript
+
+end
+</pre>
+<p>I left a good deal of the tutorial text in place, just in case I needed to reference it. We&#8217;re using Ubuntu Precise Pangolin 64-bit as the base box, distributed by HashiCorp, and I use a plugin that modifies my hosts file so that I can always find the machine in my browser at a known host. The provision script is just a simple shell script embedded within the config; I&#8217;ve placed it at the top so it&#8217;s easy to find.</p>
+<p>One other major feature that I haven&#8217;t yet played with is the ability for a single Vagrantfile to bring up multiple machines. If your cluster generally consists of, say, two web servers, a database server, and a load balancer, you can encode that all in a single vagrantfile to bring up a fresh cluster on demand. This makes it simple to bring up new testing environments with just one command.</p>
+<h3>Docker</h3>
+<p>I haven&#8217;t played much with Docker, but everyone seems to be raving about it, so I figured I&#8217;d touch on it as an alternative to Vagrant. Docker takes the metaphor of shipping containers, which revolutionized the shipping industry by abstracting away the handling of specific types of goods from the underlying business of moving goods around, and extends it to software. Before standard shipping containers, different goods packed differently, required different packaging material to keep them safe, and shipped in different amounts and weights; cargo handlers had to learn all these things, and merchants were a little wary of trusting their precious goods to someone who was less experienced. The invention of the standard shipping container changed all that: shipping companies just had to understand how to load and transport containers, and it was up to the manufacturers to figure out how to pack them. Docker does the same thing for software: operations staff just have to know how to deploy containers, while it&#8217;s up to the application developers to understand how to pack them.</p>
+<p>Inside a docker container, the application, its dependencies, and its required libraries reside, all pinned to the right versions and nestled inside the container. Outside, the operating system and any system-wide dependencies can be maintained by the operational staff. When it&#8217;s time to upgrade, they just remove the existing container and deploy the new one over top. Different containers with different versions of the same dependency can live side  by side; each one can only see its own contents and the host&#8217;s contents.</p>
+<p>And thus, we reach the limit of my knowledge of Docker. Do you have more knowledge? Do you have experience with Vagrant? Share in the comments!</p>
+
+			</div><!-- .entry-content -->

@@ -1,0 +1,20 @@
+---
+categories:
+- Quick Tips
+- Servers
+date: "2016-06-01"
+tags:
+- bamboo
+- continuous integration
+- deployment
+title: "How to force Bamboo to build on Linux"
+---
+
+		<div class="entry-content">
+		<p>So let&#8217;s talk about build servers for a minute. I manage the company&#8217;s <a href="https://www.atlassian.com/software/bamboo">Bamboo </a>server, which we use to do builds and continuous integration. I don&#8217;t know if this is an unusual use case or what, but some of my builds require Windows and others perform best on Linux. So we have Windows agents and Linux agents.</p>
+<p>Some things you would think are intuitive are not. For example, there&#8217;s no way to differentiate in a Script Task between CMD and Bash. How many scripts are actually cross-compatible between the two? Not many, in my experience. Often, I&#8217;d write out script tasks for Bash and they&#8217;d get farmed out to a Windows server by mistake and fail to, say, create a tar archive or wget a resource. So how can I force those to execute on Windows?</p>
+<p>The solution I hit upon is pretty simple: I created a new executable definition called Bash, located at /bin/bash. This will auto-detect on new Linux agents, but not on Windows agents. Then I can put my scripts into the repo (which is probably a best practice anyway) and use the Bash command to run them. I can even run one-liner scripts with this task if I use the &#8220;-c&#8221; flag before the command, like &#8220;-c grep &#8211;BROKEN&#8211; results.txt | tee broken.txt&#8221; (a command I used just yesterday to pull results out of my broken link checker). Plus, you can still use the script task as normal, as long as there&#8217;s at least one Bash task in your job to force it to build on Linux.</p>
+<p>The inverse is simple as well: I created a Powershell executable and use Powershell scripts for my Windows builds. Problem solved, plus I get the power of Powershell to use in my scripts.</p>
+<p>Does anyone out there have any other cool tips? Let me know in the comments!</p>
+
+			</div><!-- .entry-content -->

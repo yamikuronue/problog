@@ -1,0 +1,43 @@
+---
+categories:
+- Devops
+date: "2018-01-10"
+tags:
+- continuous integration
+- devops
+- docker
+- bamboo
+title: "Dockerization Part 1: Building"
+---
+
+	<div class="entry-content">
+		<p>I&#8217;ve been long overdue for a series of articles explaining how our current build system works. One of the major projects I was involved with before this recent reorg involved overhauling our manual build process into a shiny new CI/CD system that would take the code from commit to production in a regulated, automated fashion. As always, the reward for doing a good job is more work like that; when we decided to move to Docker to better support our new team structure, I ended up doing a lot of the foundational work on our new build-test-deliver pipeline. Part one of that pipeline is, of course, building and storing containers.</p>
+<h2>Your mission, if you choose to accept it</h2>
+<p>In the old world, before we dockerized our applications, we were following a fairly typical system (that I designed): our CI server runs tests against the code, then bundles it up as an archive file. After that, one environment at a time and on request, it would SCP the tarball down to the server, stop the running process, remove the old codebase, and unpack the new before starting the process again. There were configuration files that had to be saved off and moved back in afterward in a few cases, but we had all those edge cases ironed out. It was working, and there were almost no changes to it in the year before we launched docker.</p>
+<p>As we were preparing to go live, I didn&#8217;t want to lose the build pipelines we had worked so hard on. And yet, docker containers are fundamentally different than tarballs of code files. Furthermore, our operators (who are responsible for putting code into production) complained of having too many buttons to click: often, our servers had 3-4 codebases on them, meaning 3-4 buttons to click to update one server. They definitely didn&#8217;t want to do one button per container. On the other hand, our developers were clear on what they wanted: more deploys, faster deploys, and breaking out their monoliths into modules and microservices so they could go even faster. How to balance these concerns?</p>
+<p>Another wrinkle emerged as well once I got my hands on our environment: we chose Rancher as our docker management tool of choice. Rancher is a great little tool, and I enjoy working with its GUI, but when most companies seem to be standardizing on Kubernetes, it was hard to find good examples and tutorials for how to work with Rancher instead.</p>
+<p>With all those pressures bearing down on me, my task was straightforward, but far from simple.</p>
+<h2>How to build a container in 30 days</h2>
+<p>The promise of containers seemed like it resolved a lot of our headaches overall: developers control the interior of the container, and Platform Ops controls the outside of it. In this brave new world, I don&#8217;t have to care what goes in a container, but it&#8217;s my job to ensure they get to where they&#8217;re going every time without fail. In practice, however, I found I need to understand quite a bit about containers themselves.</p>
+<p>For the purposes of this article, you don&#8217;t need to know or care about the virtualization layer; just trust that a container is isolated from everything around it, until and unless you drill holes in it (which we do. A lot. But I understand that&#8217;s common). You will need to know a little about how they&#8217;re built, however.</p>
+<p>Picture a repository of source code. At some point, to dockerize the application contained within, you need  a Dockerfile: a file of instructions on how to build this container. Almost every container begins with an instruction to extend from another image, much like classes extending from a base class. This was really handy for us, since it means we can put anything we need into a custom base image and all the developers will have it pre-installed.</p>
+<p>From there, there&#8217;s a series of customizations to the container. Generally, one step involves copying the code into the container, and another tells the container what executable to run when it starts. For Node.js, we ask our developers to put their code in a standard location, then execute &#8220;npm start&#8221; when the container boots up, letting them define what that means for their application.</p>
+<p>Once you&#8217;re happy with what the container contains, it&#8217;s time to seal it up and ship it. In this case, that means two commands: a &#8220;tag&#8221; command, which gives it a name more interesting than the default (which will be something like <a href="https://frightanic.com/computers/docker-default-container-names/">2b9c0185251d</a>), and a &#8220;push&#8221; command, which uploads the docker container to a remote repository. If the container is intended to live in a central repository, it has to be tagged with that repository as part of the name (including a port number, which usually defaults to 5000 for a Docker registry unless you put an Nginx in front to make it 80): something like &#8220;artifactory.internal:5000/dt-node-base&#8221;. Appended to that is a version: this can be a sequential number, or a word or anything else. By convention, each container is tagged twice: once with a sequential number, and once with the word &#8220;latest&#8221;. That makes it so you can always pull down the very latest node base container from our Artifactory repository by asking it for &#8220;artifactory.internal:5000/dt-node-base:latest&#8221;.</p>
+<h2>The system</h2>
+<p>So we have a number of parts to this build system that the CI/CD server has to integrate with. The first piece is to begin with raw source code, including a Dockerfile; we had been using Subversion, but the developers had been asking for Git for so long we finally broke down and bought a Bitbucket server and let them migrate.</p>
+<p>The next piece is to build the containers with Docker. Since we were using Bamboo as our CI/CD server, I installed Docker on all the remote agents; this required an OS upgrade for them to Red Hat 7, but I was able to script the install using Ansible to make doing it across our whole system less painful.</p>
+<p>The next piece is somewhere to store the containers when we&#8217;re done with them. As you can guess by the previous example, we decided to use Artifactory for this; this is mostly because, as the developers moved to Node, they were asking for a private NPM server, and Artifactory is able to do double duty and hold both types of artifacts.</p>
+<p>For the communication between them, my coworker put together a script we could put on each build server that the plans could use to ensure they didn&#8217;t miss any steps. It&#8217;s straightforward, looking something like this:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="shell">#!/bin/sh -e
+# $1 Project Name (dt-nodejs)
+
+docker build -t artifactory.internal:5000/$1:$bamboo_buildNumber \
+ -t artifactory.internal:5000/$1:latest
+
+docker push artifactory.internal:5000/$1:$bamboo_buildNumber
+docker push artifactory.internal:5000/$1:latest
+echo "$1:$bamboo_buildNumber and $1:latest pushed to Artifactory on artifactory.internal:5000"</pre>
+<p>This means that every build tags the container with the number of the build, giving us an easy source of sequential numbers for the containers without thinking about it. It does mean, however, that building a new pipeline for an existing container name will start the numbering over from 1 and overwrite old containers, but we encourage developers to edit their build plans instead of starting over where possible. If you have any ideas on how to prevent that, I&#8217;d love to hear them.</p>
+<p>(I&#8217;ve actually enhanced this script since, but I&#8217;ll talk about that in a future entry)</p>
+<p>&nbsp;</p>
+			</div><!-- .entry-content -->

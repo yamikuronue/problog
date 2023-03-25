@@ -1,0 +1,326 @@
+---
+categories:
+- Longer Tales
+- SQA
+date: "2016-07-10"
+tags:
+- devops
+- docker
+- vagrant
+- selendroid
+title: "Selenium Grid on Docker and Vagrant: Part 2"
+---
+	<div class="entry-content">
+		<p><a href="blog/posts/2016-07-vagrant-pt1/">Last time</a> we got Vagrant configured to run a single VM with three docker containers: a Selenium Grid hub, a Chrome node, and a Firefox node. This is a good start, but I wanted to configure a Selendroid node to round out the browser selection. That&#8217;s when things got a little&#8230; messy.</p>
+<p>So upon investigation into how the Docker images I was already using were constructed, I discovered a few key points:</p>
+<ul>
+<li>Docker images are defined by Dockerfiles in the same way Vagrant VMs are defined by Vagrantfiles. The format and syntax are totally different, but both are more-or-less human-readable flatfiles that explain how to set up a system. So far so good.</li>
+<li>Dockerfiles are nestable, and in fact, are often nested. The ones from Selenium HQ have a clear hierarchy. This pleased me, because I figured it gave me a nice stable base to work on: my file, like the Chrome and Firefox files, would inherit from the node-base image, but with tweaks specific to Selendroid.</li>
+</ul>
+<p>So there&#8217;s the top of my Dockerfile:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">FROM selenium/node-base:2.53.0
+MAINTAINER Bgreen &lt;[redacted]&gt;
+
+USER root</pre>
+<p>I cracked open the <a href="https://github.com/SeleniumHQ/docker-selenium/blob/master/NodeChrome/Dockerfile">Chrome dockerfile</a> and the <a href="https://docs.docker.com/engine/reference/builder/">Dockerfile reference guide</a> and got reading. It looked pretty straightforward at first: just write a bash script, but stick &#8220;RUN&#8221; in front of it. Spoiler alert: as I started working on my own script, I learned that this was entirely the wrong way to go about writing a dockerfile. Docker has a lot of useful commands other than &#8220;RUN&#8221;, and it wasn&#8217;t long before I was breaking apart my scripts learning how to put the dockerfile together property.</p>
+<p>Looking at the <a href="http://selendroid.io/scale.html">Selendroid grid instructions</a> and the <a href="http://selendroid.io/setup.html">Selendroid getting started guide,</a> there were three major steps:</p>
+<ul>
+<li>Install the JDK</li>
+<li>Install the Android SDK</li>
+<li>Install Selendroid and start it in grid mode</li>
+</ul>
+<p>Step 1 appeared to be done already, by virtue of the Node-Base dockerfile. This was a dangerous and ultimately wrong assumption, but it was one I worked with for over a day before I realized my mistake. It turns out, the JRE was installed in the base image&#8230; under the name openJDK. Nice.</p>
+<p>Java installation:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">#===============
+# JAVA
+#===============
+RUN apt-get update &amp;&amp; apt-get install -y openjdk-8-jdk
+RUN ls -l /usr/lib/jvm/
+ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64</pre>
+<p>Now it was time to install the Android SDK. And here I ran into the first massive bunch of problems. I spent several hours fighting with the system, making small tweaks, before I realized I&#8217;d accidentally installed Android Studio instead of Android SDK and had to start over.</p>
+<p>I originally was going to do a wget followed by a tar, but then I learned about Docker&#8217;s ADD command. The ADD command takes a file that is located in the same directory structure as the Dockerfile and moves it into the directory structure inside the container. If the file is a tarball, it will untar the file into a folder as it does, removing the need to write an explicit tar command &#8212; a major plus, as tar commands are always annoying to write. I chose to download the tar into the file structure to avoid the network hit and used the ENV command to set ANDROID_HOME the same way I set JAVA_HOME:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">#===============
+# Android SDK
+#===============
+ADD android-sdk_r24.4.1-linux.tgz /opt/selenium/
+ENV ANDROID_HOME=/opt/selenium/android-sdk-linux
+ENV PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools</pre>
+<p>However, upon installation, there is no such folder as <code class="EnlighterJSRAW" data-enlighter-language="null">ANDROID_HOME/platform-tools</code>. This is because it is only created once you fire up the android sdk  tool and begin downloading sdks to develop with. So I figured I&#8217;d do <code class="EnlighterJSRAW" data-enlighter-language="null"> RUN android update sdk --no-ui.</code> Then I learned you have to accept the license agreement. So I updated my code to the very idomatic <code class="EnlighterJSRAW" data-enlighter-language="null">RUN yes | android update sdk --no-ui</code> .  And well&#8230; the results were mildly amusing, but not what I hoped for:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="shell">Do you accept the license 'google-gdk-license-35dc2951' [y/n]:
+Unknown response 'y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y
+y</pre>
+<p>Dear maintainers of linux software: Don&#8217;t break the &#8216;yes&#8217; command! Sincerely, Bay.</p>
+<p>Thanks to Stack Overflow, I found this:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">#===============
+# Android SDK
+#===============
+ADD android-sdk_r24.4.1-linux.tgz /opt/selenium/
+ENV ANDROID_HOME=/opt/selenium/android-sdk-linux
+ENV PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
+
+#The following downloads the platform-tools folder
+RUN ( sleep 5 &amp;&amp; while [ 1 ]; do sleep 1; echo y; done ) \
+    | android update sdk --no-ui --all\
+ 	--filter tool,platform-tools,android-23,build-tools-23.0.3</pre>
+<p>Which got us to our next section: Installing Selendroid. It seemd pretty simple:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">#===============
+# Selendroid
+#===============
+ADD selendroid-standalone-0.17.0-with-dependencies.jar /opt/selenium/selendroid.jar
+ADD selendroid-grid-plugin-0.17.0.jar /opt/selenium/selendroid-grid.jar
+
+RUN java -jar /opt/selenium/selendroid.jar
+RUN java -Dfile.encoding=UTF-8 -cp "/opt/selenium/selendroid-grid.jar:/opt/selenium/selendroid.jar" org.openqa.grid.selenium.GridLauncher -capabilityMatcher io.selendroid.grid.SelendroidCapabilityMatcher -role hub -host 127.0.0.1 -port 4444</pre>
+<p>But it didn&#8217;t work. And this, dear reader, is where I was stuck for hours, tearing my hair out in frustration. There were three errors. The first, it seems, is a red herring: there&#8217;s nothing actually wrong here (so why is it marked &#8220;SEVERE&#8221;? Bad usability, Selendroid!)</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">    android: SEVERE: Error executing command: /opt/selenium/android-sdk-linux/bu
+ild-tools/23.0.3/aapt remove /tmp/android-driver7255065332626262791.apk META-INF
+/NDKEYSTO.RSA
+    android: org.apache.commons.exec.ExecuteException: Process exited with an er
+ror: 1 (Exit value: 1)
+    android:    at org.apache.commons.exec.DefaultExecutor.executeInternal(Defau
+ltExecutor.java:377)
+    android:    at org.apache.commons.exec.DefaultExecutor.execute(DefaultExecut
+or.java:160)
+    android:    at org.apache.commons.exec.DefaultExecutor.execute(DefaultExecut
+or.java:147)
+    android:    at io.selendroid.standalone.io.ShellCommand.exec(ShellCommand.ja
+va:49)
+    android:    at io.selendroid.standalone.android.impl.DefaultAndroidApp.delet
+eFileFromWithinApk(DefaultAndroidApp.java:112)
+    android:    at io.selendroid.standalone.builder.SelendroidServerBuilder.dele
+teFileFromAppSilently(SelendroidServerBuilder.java:133)
+    android:    at io.selendroid.standalone.builder.SelendroidServerBuilder.resi
+gnApp(SelendroidServerBuilder.java:148)
+    android:    at io.selendroid.standalone.server.model.SelendroidStandaloneDri
+ver.initApplicationsUnderTest(SelendroidStandaloneDriver.java:172)
+    android:    at io.selendroid.standalone.server.model.SelendroidStandaloneDri
+ver.&lt;init&gt;(SelendroidStandaloneDriver.java:94)
+    android:    at io.selendroid.standalone.server.SelendroidStandaloneServer.in
+itializeSelendroidServer(SelendroidStandaloneServer.java:63)
+    android:    at io.selendroid.standalone.server.SelendroidStandaloneServer.&lt;i
+nit&gt;(SelendroidStandaloneServer.java:52)
+    android:    at io.selendroid.standalone.SelendroidLauncher.launchServer(Sele
+ndroidLauncher.java:65)
+    android:    at io.selendroid.standalone.SelendroidLauncher.main(SelendroidLa
+uncher.java:117)</pre>
+<p>The second drove me nuts because it outright lied to me. The file it complained about not having was right there, with executable permissions, owned by root (which I was operating as)!</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">INFO: Executing shell command: /opt/selenium/android-sdk-linux/build-tools/23.0.
+3/aapt remove /tmp/android-driver2951817352746346830.apk META-INF/MANIFEST.MF
+←[0m←[91mJul 06, 2016 8:22:29 AM io.selendroid.standalone.io.ShellCommand exec
+SEVERE: Error executing command: /opt/selenium/android-sdk-linux/build-tools/23.
+0.3/aapt remove /tmp/android-driver2951817352746346830.apk META-INF/MANIFEST.MF
+java.io.IOException: Cannot run program "/opt/selenium/android-sdk-linux/build-t
+ools/23.0.3/aapt" (in directory "."): error=2, No such file or directory
+        at java.lang.ProcessBuilder.start(ProcessBuilder.java:1048)
+        at java.lang.Runtime.exec(Runtime.java:620)</pre>
+<p>It turns out that the &#8220;No such file or directory&#8221; was coming from <strong>inside</strong> the executable named, not referring to that executable. I needed to install some dependencies I&#8217;d missed, which I did using <code class="EnlighterJSRAW" data-enlighter-language="generic">RUN apt-get update &amp;&amp; apt-get install -y lib32stdc++6 lib32z1</code>.</p>
+<p>Now I had a different problem involving the keytool:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">Jul 07, 2016 6:17:04 AM io.selendroid.standalone.io.ShellCommand exec
+INFO: Executing shell command: /usr/lib/jvm/java-8-openjdk-amd64/bin/keytool -genkey -v -keystore /home/seluser/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname CN=Android Debug,O=Android,C=US -storetype JKS -sigalg MD5withRSA -keyalg RSA -validity 9999
+Jul 07, 2016 6:17:06 AM io.selendroid.standalone.io.ShellCommand exec
+SEVERE: Error executing command: /usr/lib/jvm/java-8-openjdk-amd64/bin/keytool -genkey -v -keystore /home/seluser/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname CN=Android Debug,O=Android,C=US -storetype JKS -sigalg MD5withRSA -keyalg RSA -validity 9999
+org.apache.commons.exec.ExecuteException: Process exited with an error: 1 (Exit value: 1)
+        at org.apache.commons.exec.DefaultExecutor.executeInternal(DefaultExecutor.java:377)
+        at org.apache.commons.exec.DefaultExecutor.execute(DefaultExecutor.java:160)
+        at org.apache.commons.exec.DefaultExecutor.execute(DefaultExecutor.java:147)
+        at io.selendroid.standalone.io.ShellCommand.exec(ShellCommand.java:49)
+        at io.selendroid.standalone.builder.SelendroidServerBuilder.signTestServer(SelendroidServerBuilder.java:277)
+        at io.selendroid.standalone.builder.SelendroidServerBuilder.resignApp(SelendroidServerBuilder.java:154)
+        at io.selendroid.standalone.server.model.SelendroidStandaloneDriver.initApplicationsUnderTest(SelendroidStandaloneDriver.java:172)
+        at io.selendroid.standalone.server.model.SelendroidStandaloneDriver.&lt;init&gt;(SelendroidStandaloneDriver.java:94)
+        at io.selendroid.standalone.server.SelendroidStandaloneServer.initializeSelendroidServer(SelendroidStandaloneServer.java:63)
+        at io.selendroid.standalone.server.SelendroidStandaloneServer.&lt;init&gt;(SelendroidStandaloneServer.java:52)
+        at io.selendroid.standalone.SelendroidLauncher.launchServer(SelendroidLauncher.java:65)
+        at io.selendroid.standalone.SelendroidLauncher.main(SelendroidLauncher.java:117)
+
+</pre>
+<p>&nbsp;</p>
+<p>This simply claims that the process has exited with a failure; neither the stack trace nor the error message are useful. When I tried to execute that command myself, it complained about an invalid command-line option, which to me indicated that there needed to be quotes around the OU. I didn&#8217;t have access to change that, though I could generate my own keystore. However, I also had the third error to deal with:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">SEVERE: Error building server: io.selendroid.standalone.exceptions.ShellCommandE
+xception: Error executing shell command: /usr/lib/jvm/java-8-openjdk-amd64/bin/j
+arsigner -sigalg MD5withRSA -digestalg SHA1 -signedjar /tmp/resigned-android-dri
+ver694668080026603748.apk -storepass android -keystore /root/.android/debug.keys
+tore /tmp/android-driver694668080026603748.apk androiddebugkey
+←[0m←[91mException in thread "main" ←[0m←[91mjava.lang.RuntimeException: io.sele
+ndroid.standalone.exceptions.ShellCommandException: Error executing shell comman
+d: /usr/lib/jvm/java-8-openjdk-amd64/bin/jarsigner -sigalg MD5withRSA -digestalg
+ SHA1 -signedjar /tmp/resigned-android-driver694668080026603748.apk -storepass a
+ndroid -keystore /root/.android/debug.keystore /tmp/android-driver69466808002660
+3748.apk androiddebugkey←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.server.model.SelendroidStandaloneDri
+ver.initApplicationsUnderTest(SelendroidStandaloneDriver.java:175)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.server.model.SelendroidStandaloneDri
+ver.&lt;init&gt;(SelendroidStandaloneDriver.java:94)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.server.SelendroidStandaloneServer.in
+itializeSelendroidServer(SelendroidStandaloneServer.java:63)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.server.SelendroidStandaloneServer.&lt;i
+nit&gt;(SelendroidStandaloneServer.java:52)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.SelendroidLauncher.launchServer(Sele
+ndroidLauncher.java:65)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.SelendroidLauncher.main(SelendroidLa
+uncher.java:117)←[0m←[91m
+←[0m←[91mCaused by: io.selendroid.standalone.exceptions.ShellCommandException: E
+rror executing shell command: /usr/lib/jvm/java-8-openjdk-amd64/bin/jarsigner -s
+igalg MD5withRSA -digestalg SHA1 -signedjar /tmp/resigned-android-driver69466808
+0026603748.apk -storepass android -keystore /root/.android/debug.keystore /tmp/a
+ndroid-driver694668080026603748.apk androiddebugkey←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.io.ShellCommand.exec(ShellCommand.ja
+va:56)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.builder.SelendroidServerBuilder.sign
+TestServer(SelendroidServerBuilder.java:296)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.builder.SelendroidServerBuilder.resi
+gnApp(SelendroidServerBuilder.java:154)←[0m←[91m
+←[0m←[91m       at io.selendroid.standalone.server.model.SelendroidStandaloneDri
+ver.initApplicationsUnderTest(SelendroidStandaloneDriver.java:172)←[0m←[91m
+←[0m←[91m       ... 5 more←[0m←[91m
+←[0m←[91mCaused by: io.selendroid.standalone.exceptions.ShellCommandException: ←
+[0m←[91m</pre>
+<p>This executable was missing altogether, and rightly so: I couldn&#8217;t find it on the filesystem. And that was when I realized my &#8220;JDK&#8221; was a JRE. Installing the proper JDK, shown above, took care of both those errors. Lessons learned.</p>
+<p>(As a side note: one thing I really like about Docker is the caching strategy. It only seemed to re-install the Android SDKs if I changed that step or an earlier one, preferring the cached version when I was working on the later steps &#8212; something that saved me a ton of time and frusturation.)</p>
+<p>So now we have a working (sort of) Dockerfile! Two problems left:</p>
+<ul>
+<li>There are no emulators available for Selendroid. Oops!</li>
+<li>The dockerfile starts Selenium Server and then hangs forever, because it doesn&#8217;t return from that. <strong>TBD</strong></li>
+</ul>
+<p>Now, normally you&#8217;d fire up the Android Studio GUI and create yourself an AVD file for Selendroid to use, but I&#8217;m doing it all the hard way, via the command line in my Docker file. The first thing I have to do is download an ABI to make an AVD out of:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">#The following downloads the platform-tools folder and the ABI
+RUN ( sleep 5 &amp;&amp; while [ 1 ]; do sleep 1; echo y; done ) \
+    | android update sdk --no-ui --all\
+ 	--filter tool,platform-tools,android-23,sys-img-x86-android-23,build-tools-23.0.3</pre>
+<p>And then, I create an ABI out of it. Note that we are asked one question I couldn&#8217;t get rid of using command-line flags, so I used the &#8220;echo&#8221; command to send a newline and accept the default option (no hardware profile):</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">#Create AVD. Echo sends a newline and nothing else here, for accepting the default to the question asked.
+RUN echo | android create avd --name Default --target android-23 --abi x86</pre>
+<p>Now before it hangs forever, it clearly states:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">android: INFO: Shell command output
+android: --&gt;
+android: Available Android Virtual Devices:
+android:     Name: Default
+android:     Path: /root/.android/avd/Default.avd
+android:   Target: Android 6.0 (API level 23)
+android:  Tag/ABI: default/x86
+android:     Skin: WVGA800
+android: &lt;--
+android:</pre>
+<p>Progress made!</p>
+<p>It was then that I began to really dig into the nitty gritty about how the base image started selenium server. It seems that Selenium HQ chose to use a shell script to wrangle a series of environment variables; since they know the product better than I do, I went down the same path and created my own version of <a href="https://github.com/SeleniumHQ/docker-selenium/blob/master/NodeBase/entry_point.sh">this script</a>, modified for Selendroid:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="shell">#!/bin/bash
+
+source /opt/bin/functions.sh
+
+java ${JAVA_OPTS} -jar /opt/selenium/selendroid.jar -keystore /home/seluser/debug.keystore &amp;
+NODE_PID=$!
+
+curl -H "Content-Type: application/json" -X POST --data /opt/selenium/config.json http://$HUB_PORT_4444_TCP_ADDR:$HUB_PORT_4444_TCP_PORT/grid/register
+
+trap shutdown SIGTERM SIGINT
+wait $NODE_PID</pre>
+<p>You can see how much shorter it is; Selendroid is weird in that it doesn&#8217;t seem to take most of the config options required, and requires me to manually curl the config to the hub node.</p>
+<p>A note: <strong>be sure to save this with unix line endings.</strong> You&#8217;ll get a very strange error reading <code>[8] System error: no such file or directory</code> if you do not, and that&#8217;s awful to try and figure out because it&#8217;s so generic. I also got really comfortable SSHing into the underlying VM to run &#8220;docker rm -f&#8221; at this point, because the container was building fine but erroring out, so now it had name conflicts when I tried to rebuild.</p>
+<p>At this point, the container built, but did not run successfully. This means our debugging strategy changes from inspecting the vagrant output carefully to reading the container&#8217;s logs using &#8220;docker logs selenium-selendroid&#8221;. I now found the resurgence of several of our older problems, which was incredibly frustrating; I was sure that those had been resolved already. It was all stupid little fixes, like generating the keystore in a known location as root and then passing it into selendroid (an approach I had tried earlier but found unnecessary, and one that is already accounted for in the above shell script) or making sure to generate the AVD as the same user that would run selendroid so it ended up in the right location.</p>
+<p>At this point we have a working Selendroid docker container! But&#8230;.. it doesn&#8217;t register with the hub correctly. Also, the hub&#8217;s web console isn&#8217;t accessible, making debugging troubling. At this point, I&#8217;m taking a breather, because it&#8217;s been 3 days and I&#8217;m frustrated. We&#8217;ll return in part 3 to make this fully functional. Feel free to comment if you have tips and tricks!</p>
+<p>Our current dockerfile:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="generic">FROM selenium/node-base:2.53.0
+MAINTAINER Bgreen &lt;[redacted email]&gt;
+
+USER root
+
+#===============
+# JAVA
+#===============
+RUN apt-get update &amp;&amp; apt-get install -y openjdk-8-jdk
+ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64
+
+#Keystore generation is broken somehow?
+RUN /usr/lib/jvm/java-8-openjdk-amd64/bin/keytool -genkey -v -keystore /home/seluser/debug.keystore \
+    -storepass android -alias androiddebugkey -keypass android \
+    -dname CN="Android Debug,O=Android,C=US" -storetype JKS -sigalg MD5withRSA \
+    -keyalg RSA -validity 9999
+
+RUN chown seluser /home/seluser/debug.keystore
+
+#===============
+# Android SDK
+#===============
+ADD android-sdk_r24.4.1-linux.tgz /opt/selenium/
+ENV ANDROID_HOME=/opt/selenium/android-sdk-linux
+ENV PATH=${PATH}:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools
+
+#The following downloads the platform-tools folder and the ABI
+RUN ( sleep 5 &amp;&amp; while [ 1 ]; do sleep 1; echo y; done ) \
+    | android update sdk --no-ui --all\
+ 	--filter tool,platform-tools,android-23,sys-img-x86-android-23,build-tools-23.0.3
+
+#========================
+# Selenium Configuration
+#========================
+COPY config.json /opt/selenium/config.json
+
+#========================
+# Extra libraries
+#========================
+RUN apt-get update &amp;&amp; apt-get install -y lib32stdc++6 lib32z1
+RUN apt-get install -y curl
+
+#===============
+# Selendroid
+#===============
+ADD selendroid-standalone-0.17.0-with-dependencies.jar /opt/selenium/selendroid.jar
+ADD selendroid-grid-plugin-0.17.0.jar /opt/selenium/selendroid-grid.jar
+
+COPY startSelendroid.sh /opt/bin/
+RUN chmod +x /opt/bin/startSelendroid.sh
+
+#===============
+# Start the grid
+#===============
+USER seluser
+
+#Create AVD. Echo sends a newline and nothing else here, for accepting the default to the question asked.
+RUN echo | android create avd --name Default --target android-23 --abi x86
+
+CMD ["/opt/bin/startSelendroid.sh"]</pre>
+<p>&nbsp;</p>
+			</div><!-- .entry-content -->

@@ -1,0 +1,176 @@
+---
+categories:
+- SQA
+date: "2016-05-10"
+tags:
+- BDD
+- cucumber
+- java
+- test automation
+- testing
+title: "Cucumber is Magic, Right?"
+---
+
+		<div class="entry-content">
+		<p>Everywhere I go, I see talk about BDD and Cucumber. Cucumber is the promised messiah, the single technology that bridges the world of the business and the world of the programmer, allowing your BA to write executable test cases so you don&#8217;t have to spend time automating once you have a solid framework. It&#8217;s the future, the new order, and it&#8217;s here, now, ready for prime time. Who wouldn&#8217;t want to learn it, right?</p>
+<p>That&#8217;s what I thought before I took a class on Ruby that happened to use it and got a good look under the hood. And what I saw wasn&#8217;t magical unicorn sparkles at all. It was a tangled nest of Regex. Lots and lots of Regex.</p>
+<p><img src="http://s2.quickmeme.com/img/28/28267ccca83716ccddc3a2e194e8b0052cae3a204de3f37928a20e8ff4f0ee65.jpg" alt="I had a problem so I used regular expressions Now I have two problems! - I had a problem so I used regular expressions Now I have two problems!  Perturbed Picard" /></p>
+<p>If that hasn&#8217;t already scared you away, dear reader, strap in, because you&#8217;re in for a wild ride.</p>
+<p>So I have a test automation framework for our public-facing site, Right Turn, which allows users to search for and purchase tires for their vehicle. We have tests, but the maintenance is killing us, so i&#8217;m exploring all kinds of alternate options. Among other things, one thing I wanted to do was expose the framework to a Gherkin-style test harness so that the BA could put in test scripts for the ephemeral one-off bug fixes, get them tested, and remove them when she&#8217;s sure they&#8217;re not going to regress.</p>
+<p>That&#8217;s one thing I really want to stress: I <strong>already</strong> have a framework that&#8217;s capable of driving my page using traditional WebDriver pageObjects. This initiative doesn&#8217;t remove or lesson that requirement at all, so there goes the overhead of &#8220;I don&#8217;t have to write as much code&#8221; out of the gate. You might be able to start doing this without a proper framework, but I doubt you&#8217;d be able to finish without it.</p>
+<p>So I start puttering about in Java, pulling in Cucumber JVM as a Maven dependency. What will I need? Well, every test is going to want to specify a vehicle I imagine, so I&#8217;ll toss in a step like that:</p>
+<p>&nbsp;</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">@Given("I have searched for tires for a ([\\w\\s]+)")
+    public void I_have_found_a_product(String searchCriteria) {
+        
+            
+     }</pre>
+<p>This regex is simple, just grab everything after the intro bit. Now what? Well, I need to turn that string into Vehicle object. So I skim over my existing Vehicle object for a parser&#8230; and I don&#8217;t have one. I&#8217;ll need to write it. Okay, how hard could it be to turn &#8220;2009 Kia Spectra&#8221; into Vehicle(2009, &#8220;Kia&#8221;, &#8220;Spectra&#8221;)?</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">//Sample: 2009 Kia Spectra
+pattern = Pattern.compile("(\\d{4}) (\\w+) (\\w+)");
+        m = pattern.matcher(vehicleString);
+        if (m.matches()) {
+            return new Vehicle(m.group(1), m.group(2), m.group(3), null, null);
+        }</pre>
+<p>Those nulls? Those are Trim and Option. We&#8217;ll ignore them for now. Year Make Model, done, check.</p>
+<p>Until I want to use a &#8220;2005 Land Rover LR3&#8221;. Well crap. I know the right way to do this, but it&#8217;s not fun.</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="null">    private final static String Makes = "Acura|Audi|BMW|Bentley|Buick|Cadillac|Chevrolet|Chrysler|Dodge|Ford|GMC|Honda|Hummer|Hyundai|Infiniti|Jaguar|Jeep|Kia|Land Rover|Lexus|Lincoln|MINI|Maserati|Maybach|Mazda|Mercedes-Benz|Mercury|Mitsubishi|Nissan|Pontiac|Porsche|Rolls Royce|Saab|Saturn|Scion|Smart|Subaru|Suzuki|Tesla|Toyota|Volkswagen|Volvo";
+
+public static Vehicle parseString(String vehicleString) {
+        Pattern pattern;
+        Matcher m;
+        //Sample: 1999 Kia Spectra
+        pattern = Pattern.compile("(\\d{4}) (" + Makes + ") ([\\w\\s]+)");
+        m = pattern.matcher(vehicleString);
+        if (m.matches()) {
+            return new Vehicle(m.group(1), m.group(2), m.group(3), null, null);
+        }
+        
+        
+        
+        throw new IllegalArgumentException("Cannot parse vehicle string: " + vehicleString);
+    }
+}</pre>
+<p>Okay. So then I&#8217;ll need a product. So I go to the site, putting in my test vehicle (RIP my poor little Kia, but she makes a better test vehicle than she did a transportation option anyway), and&#8230; I can&#8217;t go on in the purchase funnel. Why? You can&#8217;t deduce the tire size from the YMM, you need Trim on this vehicle.</p>
+<p>Okay. Sure. Whatever. Let&#8217;s do this.</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">private final static String Makes = "Acura|Audi|BMW|Bentley|Buick|Cadillac|Chevrolet|Chrysler|Dodge|Ford|GMC|Honda|Hummer|Hyundai|Infiniti|Jaguar|Jeep|Kia|Land Rover|Lexus|Lincoln|MINI|Maserati|Maybach|Mazda|Mercedes-Benz|Mercury|Mitsubishi|Nissan|Pontiac|Porsche|Rolls Royce|Saab|Saturn|Scion|Smart|Subaru|Suzuki|Tesla|Toyota|Volkswagen|Volvo";
+    public static Vehicle parseString(String vehicleString) {
+        Pattern pattern;
+        Matcher m;
+        
+        //Sample: 2009 Kia Spectra EX
+        pattern = Pattern.compile("(\\d{4}) (" + Makes + ") ([A-Za-z0-9]+) ([\\w]+)");
+        m = pattern.matcher(vehicleString);
+        if (m.matches()) {
+            return new Vehicle(m.group(1), m.group(2), m.group(3), m.group(4), null);
+        }
+
+        //Sample: 1999 Kia Spectra
+        pattern = Pattern.compile("(\\d{4}) (" + Makes + ") ([\\w\\s]+)");
+        m = pattern.matcher(vehicleString);
+        if (m.matches()) {
+            return new Vehicle(m.group(1), m.group(2), m.group(3), null, null);
+        }
+        
+        
+        
+        throw new IllegalArgumentException("Cannot parse vehicle string: " + vehicleString);
+    }</pre>
+<p>I&#8217;m starting to feel vaguely nauseated, but I&#8217;ve got a vehicle parser that can handle the one test case I&#8217;m trying to put together for a demo. It&#8217;s held together with twine and duct tape, but it parses reliably. I can tell because, of course, I wrote unit tests:</p>
+<p><a href="/blog/unitTestParser1.png"><img loading="lazy" class="alignnone size-large wp-image-186" src="http://bayley.green-gaillard.com/blog/wp-content/uploads/2016/05/unitTestParser1-1024x374.png" alt="unitTestParser1" width="640" height="234" srcset="http://bayley.green-gaillard.com/blog/wp-content/uploads/2016/05/unitTestParser1-1024x374.png 1024w, http://bayley.green-gaillard.com/blog/wp-content/uploads/2016/05/unitTestParser1-300x109.png 300w, http://bayley.green-gaillard.com/blog/wp-content/uploads/2016/05/unitTestParser1-768x280.png 768w, http://bayley.green-gaillard.com/blog/wp-content/uploads/2016/05/unitTestParser1.png 1135w" sizes="(max-width: 640px) 100vw, 640px" /></a></p>
+<p>Anyway, the Kia doesn&#8217;t have options, so we&#8217;ll just move on for now. (This is hard for me: it&#8217;s <em>wrong</em> and I <em>know</em> it but I want to get to a working demo this week, so I have to force myself to leave it alone).</p>
+<p>Right, so I&#8217;ve got a vehicle. Now I need to navigate through the purchase funnel. This is where the framework saves me:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java"> LocationPage locationPage = (LocationPage) new LocationPage(driver).navigateTo();
+ locationPage.enterZipCode("44321");
+ VehiclePage vehiclePage = (VehiclePage) locationPage.clickNext();
+ vehiclePage.selectVehicle(vehicle);
+ //Skip vehicle page and tire coach
+ vehiclePage.clickNext().clickNext().clickNext();</pre>
+<p>All that logic was pre-existing, lifted right out of one of our existing tests. Except, you may have noticed one tiny problem: where did that Driver come from?</p>
+<p>For now, I just construct one the old-fashioned way:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">Webdriver driver = new FireFoxDriver();
+driver.get("demo.rightturn.com");</pre>
+<p>Great, it works, we navigate. Now what?</p>
+<p>One test case I heard the BA complaining about regressing often had to do with our product comparison feature: when you added product A, then product B, then product C, then hit &#8220;compare&#8221;, it should list them in the order A, B, C on the comparison page, but it kept doing them in the order that the API happened to return them, which was arbitrary. It had regressed a few times from simple mistakes, and she never remembered to test it, so she&#8217;d benefit from a test that could verify it quickly.</p>
+<p>So I figure, okay, we&#8217;ll need to add a product to the compare widget:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">@When("I add ([\\w\\s]+) to the compare widget")
+    public void I_add_to_compare_widget(String product) {
+        WebDriver driver = new FirefoxDriver();
+        ProductPage productPage = new ProductPage(driver);
+        Product p = getProductByName(product, productPage);
+        productPage.addProductToCompare(p);
+    }</pre>
+<p>And click compare:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">@When("I click compare")
+public void I_click_compare() {
+    WebDriver driver = new FirefoxDriver();
+    ProductPage productPage = new ProductPage(driver);
+    productPage.clickCompare();
+}</pre>
+<p>And verify the position:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">@Then("([\\w\\s]+) should be in the (left|right|middle) container")
+public void item_in_compare_bucket(String productName, String position) {
+    WebDriver driver = new FirefoxDriver();
+    ComparePage productComparePage = new ComparePage(driver);
+    int slotNum = 0;
+    
+    if (position.equalsIgnoreCase("left")) {
+        slotNum = ComparePage.LEFT_SLOT;
+    }
+    if (position.equalsIgnoreCase("right")) {
+        slotNum = ComparePage.RIGHT_SLOT;
+    } 
+    if (position.equalsIgnoreCase("middle")) {
+        slotNum = ComparePage.CENTER_SLOT;
+    } 
+    Product actual = productComparePage.getProductInSlot(slotNum);
+    assertEquals(actual.getName(), productName);
+}</pre>
+<p>I&#8217;m sure by now you&#8217;re screaming at me; the mistake is a newbie one, but it&#8217;s glaring and obvious once you know what to look for. You see, each of those drivers will drive <strong>separate</strong> instances of the browser; it&#8217;ll open three windows, and be very confused when it&#8217;s not on the right page at all.</p>
+<p>What I need now is one of the harder problems with Cucumber: <em>shared state</em>. Somehow, I have to persist the driver between steps, but <em>not</em> between tests that happen to run in parallel (and we do a lot of parallelization of our webdriver tests, as they&#8217;re slow and clunky).</p>
+<p>For now, I&#8217;ll pray that the parallelization engine properly constructs a new instance of my step class for each test, and make it a class variable:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">public class sampleStepDefs {
+    WebDriver driver;</pre>
+<p>And while I&#8217;m at it, I&#8217;ll move driver construction to a method, and swap it out for our remoteWebDriver boilerplate code (hardcoded to localhost for now, as I don&#8217;t want to get into configuration just yet):</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">private WebDriver getDriver() throws IOException {
+    DesiredCapabilities capabilities = new DesiredCapabilities();
+    capabilities.setBrowserName("firefox");
+    capabilities.setCapability(CapabilityType.SUPPORTS_LOCATION_CONTEXT, true);
+    capabilities.setCapability("autoAcceptAlerts", true);
+    WebDriver driver = new RemoteWebDriver(new URL("http://localhost:4444/wd/hub"), capabilities);
+    
+    driver.get("http://demo.rightturn.com");
+    return driver;
+}</pre>
+<p>Oh, and of course, it throws a malformedURLException in case the hardcoded URL that&#8217;s worked every other time somehow stops working. Which means I need to catch that or bubble it up:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="java">@Given("I have searched for tires for a ([\\w\\s]+)")
+public void I_have_found_a_product(String searchCriteria) throws IOException {
+    if (driver == null) {
+        driver = getDriver();
+    }
+    Vehicle vehicle = Parser.parseVehicleString(searchCriteria);
+
+    LocationPage locationPage = (LocationPage) new LocationPage(driver).navigateTo();
+    locationPage.enterZipCode("44321");
+    VehiclePage vehiclePage = (VehiclePage) locationPage.clickNext();
+    vehiclePage.selectVehicle(vehicle);
+    //Skip vehicle page and tire coach
+    vehiclePage.clickNext().clickNext().clickNext();		
+ }</pre>
+<p>I also now have a distinction between which steps are allowed to be Givens (and thus construct a WebDriver) and which are only Whens and Thens (which do not). I&#8217;m imposing arbitrary rules above and beyond the domain language, and it&#8217;s awful; I&#8217;ll have to put some thought around a better way to enact this. But now my brain is firmly gathering wool, chasing every little optimization, and I still don&#8217;t have a working demo just yet.</p>
+<p>This writeup will gloss over the half hour I spent with an online regex tester perfecting the regexes you saw above; do not, however, let that fool you: you&#8217;ll need to be good at regex to make this work. Essentially, the more flexible you want to be for your users, the more you need to get into natural language processing, which is a skill I would never expect an automation engineer to possess. Don&#8217;t we have enough domain skills we have to pick up without adding entire fields of study to our toolbox? So regex it is, and forcing our users to bend to fit our molds, which goes against everything we know about usability but what can we do about it, really?</p>
+<p>All that work for this:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="no-highlight">Feature: Comparison
+
+  Scenario: Add to compare page
+    Given I have searched for tires for a 2009 Kia Spectra LX
+    When I add Assurance Fuel Max to the compare widget
+    And I add Precision Sport to the compare widget
+    And I add AVID Ascend to the compare widget
+    And I click compare
+    Then Assurance Fuel Max should be in the left container
+    And Precision Sport should be in the middle container
+    And AVID Ascend should be in the right container</pre>
+<p>Is it worth it? Is this something our business users or BAs can even produce? There&#8217;s a hidden rigidity behind the deceptively fluid language, a whole world of rules they have to learn and memorize. But if we can offload some of the cognitive load to them, doesn&#8217;t that let us solve more of the hard problems? I don&#8217;t have answers here. I just want to be clear about what we&#8217;re doing: involving BAs in the process of test automation, not handwaving the entire process away with a magic wand.</p>
+
+			</div><!-- .entry-content -->

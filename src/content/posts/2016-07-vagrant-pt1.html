@@ -1,0 +1,197 @@
+---
+categories:
+- Longer Tales
+- SQA
+date: "2016-07-01"
+tags:
+- devops
+- docker
+- vagrant
+title: "Selenium Grid on Docker and Vagrant: Part 1"
+---
+
+	<div class="entry-content">
+		<p>I&#8217;ve been putting together a quick proof-of-concept here at work about how we could use Docker to run a Selenium Grid. I&#8217;m not sure we&#8217;ll go that route, but I was curious how it could be done.</p>
+<p>One of the main advantages of doing this sort of rough proof in Vagrant is that it becomes very portable. At the end of the day, I have a mini testing cloud I can run my tests against &#8212; and any member of my team can check out a few files and have their own mini testing cloud. It&#8217;s pretty neat, and it means that even if we decide against implementing this on a larger scale, I get some value out of it in years to come.</p>
+<p>I&#8217;ll assume you&#8217;re passingly familiar with vagrantalready, and have at least read the <a href="https://www.vagrantup.com/docs/getting-started/">getting started docs</a>. I was an absolute newbie to Docker when I started, so this discussion will assume no prior Docker knowledge. If you do know Docker, feel free to tell me how wrong I am in the comments section 🙂</p>
+<p>I went down the path of using a Docker Provisioner for an hour or so before I realized that was the wrong path: I want to use the Docker Provider. The way to think of this is like a series of super tiny VMs which have to live on a giant VM in much the same way lily pads decorate the top of a pond. Docker as a provider can manage the whole set of lily pads and knows nothing about the pond; Docker as a provisioner can add a lily pad to your existing pond ecosystem without making as many waves.</p>
+<p>So we have a secret VM, and a series of explicit Docker containers. Now, this was a proof of concept, but I actually care what OS that secret VM uses; if it&#8217;s not compatible with RHEL 6, then I won&#8217;t be able to make a good case for it in the end. Lots of shiny new toys only work on Ubuntu, after all.</p>
+<p>Vagrant by default picks the tiniest OS it can find, just enough to support the containers on top. Usually that&#8217;s a good decision, but as we just discussed I want that secret VM to be CentOS 6 instead. This is where things get a little difficult: to specify your own VM to use, you give Vagrant <em>another Vagrantfile</em>.</p>
+<p>Because Vagrantfiles need to be called &#8220;Vagrantfile&#8221;, you have to create a subfolder; mine is &#8220;dockerHost/Vagrantfile&#8221; for lack of better terminology. I also wanted to limit the amount of RAM Virtualbox would eat up, and enable networking (this will become important later). Try to think through what you&#8217;ll need, because every time you need to destroy and recreate this box, it&#8217;s going to suck and feel like it takes forever.</p>
+<p>My dockerHost vagrantfile:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="ruby">Vagrant.configure("2") do |config|
+    # Every Vagrant development environment requires a box. You can search for
+    # boxes at https://atlas.hashicorp.com/search.
+    config.vm.box = "bento/centos-6.7"
+
+
+    # Create a forwarded port mapping which allows access to a specific port
+    # within the machine from a port on the host machine. In the example below,
+    # accessing "localhost:8080" will access port 80 on the guest machine.
+    config.vm.network "forwarded_port", guest: 80, host: 8088
+
+    # Create a private network, which allows host-only access to the machine
+    # using a specific IP.
+    config.vm.network "private_network", ip: "192.168.33.10"
+
+
+    # Provider-specific configuration so you can fine-tune various
+    # backing providers for Vagrant. These expose provider-specific options.
+    config.vm.provider "virtualbox" do |vb|
+        # Customize the amount of memory on the VM:
+        vb.memory = "1024"
+
+        # enable network features
+        vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+        vb.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+    end
+
+    # Docker provisioner will install docker when given no options
+    # This prepares the box to be a base image for the docker-related script
+    config.vm.provision "docker"
+
+    # The following line terminates all ssh connections. Therefore
+    # Vagrant will be forced to reconnect.
+    # That's a workaround to have the docker command in the PATH
+    config.vm.provision "shell", inline:
+        "ps aux | grep 'sshd:' | awk '{print $2}' | xargs kill"
+
+    # Below are to fix an issue with docker provisioning
+    config.vm.provision "shell", inline: "sudo chmod 777 /var/lib/docker "
+
+end</pre>
+<p>A few things to point out:</p>
+<ul>
+<li>I needed to enable network features, but not right away; that&#8217;s a later addition, for things we won&#8217;t get to until part 2.</li>
+<li>Docker as a provisioner comes back into the mix in a rather unintuitive way. When given no images to load or dockerfiles to build, the provisioner simply installs Docker and exits. This makes a very easy, platform-agnostic way to install Docker. I was halfway through a shell script to do the provisioning when I learned this, and frankly, I just didn&#8217;t want to bother learning how to install Docker. On the other hand, this step takes forEVER to run, so you don&#8217;t want to recreate the VM often.</li>
+<li>Docker isn&#8217;t available as a command until the ssh has been kicked out and reconnected. This is probably a Vagrant bug. I found the workaround listed above and stopped looking, because I didn&#8217;t want to spend more time on this than necessary.</li>
+<li>The last line isn&#8217;t needed until part 2 of this series, but if you plan to build your own docker images, you probably want it.</li>
+</ul>
+<p>When this is run with &#8220;vagrant up&#8221;, it creates a VM that has Docker installed. You probably want to test this before moving on, but once you do, you won&#8217;t need to explicitly start this again.</p>
+<p>So let&#8217;s go to our upper-level Vagrantfile. I looked around and very quickly found some Docker images I want to use out of the box: <a href="https://github.com/SeleniumHQ/docker-selenium">https://github.com/SeleniumHQ/docker-selenium</a>. The first one to get running is the hub node, the central node for our grid. We configure Docker like any other provider:</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="ruby">Vagrant.configure("2") do |config|
+    # The most common configuration options are documented and commented below.
+    # For a complete reference, please see the online documentation at
+    # https://docs.vagrantup.com.
+
+    # Skip checking for an updated Vagrant box
+    config.vm.box_check_update = false
+
+    # Always use Vagrant's default insecure key
+    config.ssh.insert_key = false
+
+    # Disable synced folders (prevents an NFS error on "vagrant up")
+    config.vm.synced_folder ".", "/vagrant", disabled: true
+
+    # Configure the Docker provider for Vagrant
+    config.vm.provider "docker" do |docker|
+
+        # Define the location of the Vagrantfile for the host VM
+        # Comment out this line to use default host VM
+        docker.vagrant_vagrantfile = "dockerHost/Vagrantfile"
+
+        # Specify the Docker image to use
+        docker.image = "selenium/hub"
+
+        # Specify a friendly name for the Docker container
+        docker.name = 'selenium-hub'
+    end</pre>
+<p>Here we can see:</p>
+<ul>
+<li>I&#8217;ll confess I stole that synced-folders workaround from another tutorial. It&#8217;s probably cargo-culting, since I never ran into that issue myself, but on the other hand, I&#8217;m not using shared folders here, and neither should you be. If you need to use shared-folders, use them in the lower level. If you need to move files into your container, that should be done using Docker&#8217;s native utilities for file system manipulation, which will be covered in part 2.</li>
+<li>The vagrantfile for the host VM is the vagrantfile we built above, the centOS one.</li>
+<li>The image to use is just the name of the image. Much like vagrant boxes, this will search the central repository and find the right container image to use, so don&#8217;t worry about this unless it fails.</li>
+<li>The friendly name is used in the log output, so make it something you&#8217;ll recognize.</li>
+</ul>
+<p>Once that launches successfully, the hard part is done: we now have a container on top of a custom VM. Now we just add nodes, which are also provided from the same source. Of course, now we&#8217;re moving from a single-machine setup to a multi-machine setup, so we use the multi-machine namespace tools Vagrant provides. We also should probably open port 4444 so that we can actually connect to the grid from our proper host machine.</p>
+<pre class="EnlighterJSRAW" data-enlighter-language="ruby"># Parallelism will damage the links 
+ENV['VAGRANT_NO_PARALLEL'] = 'yes'
+
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+Vagrant.configure("2") do |config|
+    # The most common configuration options are documented and commented below.
+    # For a complete reference, please see the online documentation at
+    # https://docs.vagrantup.com.
+
+    # Skip checking for an updated Vagrant box
+    config.vm.box_check_update = false
+
+    # Always use Vagrant's default insecure key
+    config.ssh.insert_key = false
+
+    # Disable synced folders (prevents an NFS error on "vagrant up")
+    config.vm.synced_folder ".", "/vagrant", disabled: true
+
+    config.vm.define "hub" do |hub|
+        # Configure the Docker provider for Vagrant
+        hub.vm.provider "docker" do |docker|
+
+            # Define the location of the Vagrantfile for the host VM
+            # Comment out this line to use default host VM
+            docker.vagrant_vagrantfile = "dockerHost/Vagrantfile"
+
+            # Specify the Docker image to use
+            docker.image = "selenium/hub"
+
+            # Specify port mappings
+            # If omitted, no ports are mapped!
+            docker.ports = ['4444:4444']
+
+            # Specify a friendly name for the Docker container
+            docker.name = 'selenium-hub'
+        end
+    end
+
+    #We can parallel now
+    ENV['VAGRANT_NO_PARALLEL'] = 'no'
+    config.vm.define "chrome" do |chrome|
+        # Configure the Docker provider for Vagrant
+        chrome.vm.provider "docker" do |docker|
+
+            # Define the location of the Vagrantfile for the host VM
+            # Comment out this line to use default host VM that is
+            # based on boot2docker
+            docker.vagrant_vagrantfile = "dockerHost/Vagrantfile"
+
+            # Specify the Docker image to use
+            docker.image = "selenium/node-chrome:2.53.0"
+
+            # Specify a friendly name for the Docker container
+            docker.name = 'selenium-chrome'
+
+            docker.link('selenium-hub:hub')
+        end
+    end
+
+    config.vm.define "firefox" do |firefox|
+        # Configure the Docker provider for Vagrant
+        firefox.vm.provider "docker" do |docker|
+
+            # Define the location of the Vagrantfile for the host VM
+            # Comment out this line to use default host VM that is
+            # based on boot2docker
+            docker.vagrant_vagrantfile = "dockerHost/Vagrantfile"
+
+            # Specify the Docker image to use
+            docker.image = "selenium/node-firefox"
+
+            # Specify a friendly name for the Docker container
+            docker.name = 'selenium-firefox'
+
+            docker.link('selenium-hub:hub')
+        end
+    end
+end</pre>
+<p>Some things to note:</p>
+<ul>
+<li>We use docker.link to link the nodes to the hub. This is a very Dockery thing, so i&#8217;m not entirely sure of the implications yet, but essentially, this pokes a bit of a hole in the container walls so that the processes in one container can see another container. This link creates our little network of grid nodes, allowing the nodes to register in the grid</li>
+<li>We can&#8217;t create the hub and the nodes in parallel, because the nodes need to link to the hub and the hub may not be started yet when they try to register. I tried to turn parallel back on after the hub was created but I don&#8217;t think it actually works. Oh well. Maybe move the hub to its own machine that&#8217;s always up and only control the nodes with Docker?</li>
+<li>You can pin to a specific version of the container, as I did for chrome, or you can leave it at the latest, as I did for firefox. There&#8217;s no reason I did them both differently except that I was testing out options to become more comfortable with the setup.</li>
+</ul>
+<p>If you only need to test Chrome and Firefox, you can easily see how you can set up a small grid network this way. If you use vagrant heavily already with a cloud or private-cloud setup, you can just plug and play, replacing the virtualbox stuff with your provider of choice.</p>
+<p>What about testing IE? Well, I started to put something together with the modernie VMs, as separate VMs that would need to be launched alongside the Docker provider and plug back into the hub, but ultimately I abandoned that course of action. We wouldn&#8217;t use vagrant for that task in a real setup, we&#8217;d just have a permanent VM set up to multithread requests for testing IE.</p>
+<p>Instead, what interested me more was android testing with Selendroid. There was no docker image for selendroid however&#8230; yet. Docker as a provider also lets you build your own custom image, so that&#8217;s what I set out to do. Unfortunately, that doesn&#8217;t work yet. To Be Continued!</p>
+			</div><!-- .entry-content -->

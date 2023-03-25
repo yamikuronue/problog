@@ -1,0 +1,20 @@
+---
+categories:
+- Uncategorized
+date: "2016-08-10"
+tags:
+- api design
+- philosphy
+title: "The Second Client Effect"
+---
+
+	<div class="entry-content">
+		<p>I could have sworn there was an established name for this, but nobody I&#8217;ve asked can come up with an example, and my question on programmers.se got downvotes and close votes within an hour, so I guess I&#8217;ll just name it myself 🙂</p>
+<p>We try to design sometimes for pluggability, and for the general case. We sit and we diagram and we think about broad use cases. And we&#8217;re often very wrong; that&#8217;s why YAGNI exists. So we sit down and we implement a single client, a single plugin as an example of our pluggable architecture, a single database provider. We deploy to a single platform, with a single distro of linux or version of Windows, maybe behind nginx or Apache but not both.</p>
+<p>And it works great. We test it, the design seems solid, we&#8217;re all excited about how cross-platform or pluggable or multiple-client-friendly this system is. We pat ourselves on the back and congratulate ourselves on a job well done. Mission Accomplished!</p>
+<p>And then we write the second client.</p>
+<p>That bit where we were so proud of using generic terms actually doesn&#8217;t apply at all. We remembered about the different slash types but not the case folding. We didn&#8217;t realize SQL Server couldn&#8217;t <em>do</em> that, seriously, it&#8217;s been in PostGreSQL for years. We never thought about spaces in commands or what if the forum we&#8217;re integrating against doesn&#8217;t have chats at all or what happens if you <em>don&#8217;t</em> have Ruby installed on your system.</p>
+<p>That second <em>thing</em>, whatever it is, opens brand new doors for us. We learn things we never expected about our API design, about our coupling, about our philosophy overall. If our architecture doesn&#8217;t need to be torn down and rebuilt from scratch, we feel an exhausted sense of accomplishment: we survived. We may be battered and bruised, and our application may feel like it&#8217;s being held together with duct tape and twine, but we&#8217;ve turned a real corner now. The third thing will be easier, and the fourth, and the fifth, and maybe by the time we have ten things we stop caring about the things and let other people do as they please without needing support from us every time.</p>
+<p>There&#8217;s a long standing saying that two is an impossible number: you can have exactly one thing, or you can have infinitely many things, and you should plan accordingly. Even when you plan for infinitely many, however, two is an <em>important</em> impossible number. It takes two to tango, but it&#8217;s impossible to be of two minds at once and serve both masters equally well. There&#8217;s always that friction, that hurdle you have to jump when you encounter the second client.</p>
+<p>Anyway, like I said, I couldn&#8217;t find this named anywhere, so I figured I&#8217;d better write it up myself.</p>
+			</div><!-- .entry-content -->
